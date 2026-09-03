@@ -1,0 +1,839 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Blocked Import, and a Playground</title>
+<meta name="description" content="Why scikit-learn won't load under Smart App Control, the conda-forge fix that keeps security on, and a browser playground for the toy ML concepts.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=JetBrains+Mono:wght@400;500;600;700&display=swap">
+
+<style>
+  :root {
+    --pitch: #10190f;
+    --panel: #17231533;
+    --panel-solid: #182616;
+    --chalk: #eef2ea;
+    --chalk-dim: #a0b1a1;
+    --line: #37503c;
+    --line-soft: #253a29;
+    --turf: #4bb85a;
+    --turf-deep: #2f8a3d;
+    --amber: #e7bd45;
+    --red: #dd5a41;
+    --editor-bg: #0c140b;
+    --measure: 40rem;
+    --gutter: clamp(1.25rem, 4vw, 3rem);
+    color-scheme: dark;
+  }
+  :root[data-theme="light"] {
+    --pitch: #f4f6f1;
+    --panel: #ffffff;
+    --panel-solid: #ffffff;
+    --chalk: #16241a;
+    --chalk-dim: #566b58;
+    --line: #c4d3c4;
+    --line-soft: #dde6dc;
+    --turf: #2f8a3d;
+    --turf-deep: #236c2f;
+    --amber: #a97d15;
+    --red: #c0432c;
+    --editor-bg: #0f1c14;
+  }
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) {
+      --pitch: #f4f6f1;
+      --panel: #ffffff;
+      --panel-solid: #ffffff;
+      --chalk: #16241a;
+      --chalk-dim: #566b58;
+      --line: #c4d3c4;
+      --line-soft: #dde6dc;
+      --turf: #2f8a3d;
+      --turf-deep: #236c2f;
+      --amber: #a97d15;
+      --red: #c0432c;
+      --editor-bg: #0f1c14;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    background: var(--pitch);
+    color: var(--chalk);
+    font-family: "Newsreader", Georgia, serif;
+    font-size: 1.09rem;
+    line-height: 1.66;
+    margin: 0;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 60rem; margin: 0 auto; padding: 0 var(--gutter) 7rem; }
+  .col { max-width: var(--measure); }
+
+  h1, h2, h3, .eyebrow, .kicker, figcaption b, .tablabel, .btn, .step-n {
+    font-family: "Bricolage Grotesque", "Helvetica Neue", Arial, sans-serif;
+  }
+  h1 {
+    font-size: clamp(2.1rem, 5.5vw, 3.3rem);
+    font-weight: 800;
+    line-height: 1.05;
+    letter-spacing: -0.02em;
+    text-wrap: balance;
+    margin: 0 0 0.8rem;
+  }
+  h2 {
+    font-size: clamp(1.4rem, 3vw, 1.9rem);
+    font-weight: 700;
+    letter-spacing: -0.015em;
+    line-height: 1.15;
+    text-wrap: balance;
+    margin: 0;
+  }
+  h3 { font-size: 1.05rem; font-weight: 700; margin: 2rem 0 0.5rem; }
+  p { margin: 0 0 1.15rem; }
+  strong { font-weight: 500; color: var(--chalk); }
+  a { color: var(--turf); text-underline-offset: 3px; }
+
+  .eyebrow {
+    font-size: 0.76rem; font-weight: 700; letter-spacing: 0.19em;
+    text-transform: uppercase; color: var(--turf); margin: 0 0 1.3rem;
+  }
+  .lede { font-size: clamp(1.15rem, 2.1vw, 1.35rem); line-height: 1.55; color: var(--chalk-dim); }
+  .lede strong { color: var(--chalk); font-weight: 500; }
+
+  header.hero {
+    padding: clamp(3rem, 11vh, 6.5rem) 0 clamp(2rem, 6vh, 3.5rem);
+    border-bottom: 1px solid var(--line);
+    margin-bottom: clamp(2.5rem, 7vh, 4rem);
+  }
+  section { margin-bottom: clamp(3rem, 8vh, 5rem); }
+
+  .part-head { display: flex; align-items: baseline; gap: 1rem; margin-bottom: 1.4rem; }
+  .part-num {
+    font-family: "JetBrains Mono", monospace; font-size: 0.82rem; font-weight: 600;
+    color: var(--turf); border: 1px solid var(--line); border-radius: 999px;
+    padding: 0.16rem 0.72rem; flex: none; line-height: 1.4;
+  }
+
+  figure {
+    margin: 2rem 0 2.2rem;
+    padding: clamp(1rem, 3vw, 1.7rem);
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    max-width: none;
+  }
+  figure svg { display: block; width: 100%; height: auto; }
+  figcaption { margin-top: 1rem; font-size: 0.92rem; line-height: 1.55; color: var(--chalk-dim); }
+  figcaption b { color: var(--chalk); font-weight: 600; font-size: 0.88rem; }
+  .scroll-x { overflow-x: auto; }
+
+  .callout {
+    border-left: 3px solid var(--amber);
+    padding: 0.15rem 0 0.15rem 1.15rem;
+    margin: 1.7rem 0;
+  }
+  .callout.turf { border-left-color: var(--turf); }
+  .callout .kicker {
+    display: block; font-size: 0.74rem; font-weight: 700; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--amber); margin-bottom: 0.35rem;
+  }
+  .callout.turf .kicker { color: var(--turf); }
+  .callout p { margin: 0; color: var(--chalk-dim); }
+  .callout p strong { color: var(--chalk); }
+
+  .steps { list-style: none; padding: 0; margin: 1.5rem 0; display: grid; gap: 0.9rem; }
+  .steps li {
+    display: grid; grid-template-columns: auto 1fr; gap: 0.9rem; align-items: start;
+    padding: 0.9rem 1rem; background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+  }
+  .step-n {
+    font-size: 0.8rem; font-weight: 700; color: var(--turf);
+    border: 1px solid var(--line); border-radius: 6px; padding: 0.1rem 0.5rem;
+    font-variant-numeric: tabular-nums;
+  }
+  .steps li p { margin: 0; font-size: 0.98rem; }
+  .steps code { font-size: 0.85em; }
+
+  pre.cmd {
+    background: var(--editor-bg);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 1rem 1.1rem;
+    overflow-x: auto;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.86rem;
+    line-height: 1.7;
+    color: var(--chalk);
+    margin: 1.2rem 0;
+  }
+  pre.cmd .c { color: var(--chalk-dim); }
+  pre.cmd .g { color: var(--turf); }
+  code {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.88em;
+    background: var(--line-soft);
+    padding: 0.08em 0.4em;
+    border-radius: 3px;
+  }
+
+  .pg {
+    margin: 2rem 0;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    overflow: hidden;
+    background: var(--panel-solid);
+  }
+  .pg-tabs { display: flex; flex-wrap: wrap; gap: 0; border-bottom: 1px solid var(--line); background: var(--panel); }
+  .tablabel {
+    appearance: none; border: none; background: none;
+    color: var(--chalk-dim); cursor: pointer;
+    padding: 0.7rem 0.95rem; font-size: 0.8rem; font-weight: 600;
+    border-bottom: 2px solid transparent;
+    white-space: nowrap;
+  }
+  .tablabel:hover { color: var(--chalk); }
+  .tablabel[aria-selected="true"] { color: var(--turf); border-bottom-color: var(--turf); }
+
+  .pg-desc {
+    padding: 0.85rem 1.1rem;
+    font-size: 0.92rem;
+    color: var(--chalk-dim);
+    border-bottom: 1px solid var(--line);
+    background: var(--panel);
+  }
+  .pg-desc b { color: var(--chalk); font-weight: 600; font-family: "Bricolage Grotesque", sans-serif; }
+
+  .pg-body { display: grid; grid-template-columns: 1fr; }
+  @media (min-width: 56rem) { .pg-body { grid-template-columns: 1fr 1fr; } }
+
+  .pg-editor { border-right: 1px solid var(--line); display: flex; flex-direction: column; }
+  .pg-editor textarea {
+    flex: 1;
+    min-height: 22rem;
+    resize: vertical;
+    border: none;
+    background: var(--editor-bg);
+    color: var(--chalk);
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.82rem;
+    line-height: 1.7;
+    padding: 1rem 1.1rem;
+    tab-size: 2;
+  }
+  .pg-editor textarea:focus { outline: 2px solid var(--turf); outline-offset: -2px; }
+
+  .pg-run { display: flex; gap: 0.6rem; padding: 0.7rem 1rem; border-top: 1px solid var(--line); background: var(--panel); }
+  .btn {
+    appearance: none; cursor: pointer;
+    background: var(--turf); color: #0c140b;
+    border: none; border-radius: 6px;
+    padding: 0.45rem 1.2rem; font-size: 0.82rem; font-weight: 700;
+    letter-spacing: 0.02em;
+  }
+  .btn:hover { background: var(--turf-deep); color: var(--chalk); }
+  .btn.ghost { background: none; color: var(--chalk-dim); border: 1px solid var(--line); }
+  .btn.ghost:hover { color: var(--chalk); background: var(--line-soft); }
+  .pg-kbd { margin-left: auto; align-self: center; font-family: "JetBrains Mono", monospace; font-size: 0.72rem; color: var(--chalk-dim); }
+
+  .pg-out {
+    background: var(--editor-bg);
+    padding: 1rem 1.1rem;
+    overflow: auto;
+    max-height: 34rem;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.8rem;
+    line-height: 1.6;
+    white-space: pre;
+    color: var(--chalk);
+    min-height: 22rem;
+  }
+  .pg-out .err { color: var(--red); }
+  .pg-out .muted { color: var(--chalk-dim); }
+
+  hr.rule { border: none; border-top: 1px solid var(--line); margin: 0 0 clamp(2.5rem, 7vh, 4rem); }
+  .foot {
+    margin-top: 3rem; padding-top: 1.5rem; border-top: 1px solid var(--line);
+    font-size: 0.92rem; color: var(--chalk-dim);
+  }
+  :focus-visible { outline: 2px solid var(--turf); outline-offset: 3px; border-radius: 2px; }
+  .reveal { opacity: 0; transform: translateY(14px); transition: opacity .5s, transform .5s; }
+  .reveal.in { opacity: 1; transform: none; }
+  @media (prefers-reduced-motion: reduce) { .reveal { opacity: 1; transform: none; transition: none; } }
+
+  .sitenav { border-bottom: 1px solid var(--line); }
+  .sitenav-inner { max-width: 60rem; margin: 0 auto; padding: 1rem var(--gutter);
+    display: flex; flex-wrap: wrap; gap: .3rem 1.4rem; align-items: baseline; }
+  .sitenav a { font-family: "JetBrains Mono", monospace; font-size: .78rem; letter-spacing: .02em;
+    color: var(--chalk-dim); text-decoration: none; }
+  .sitenav a:hover { color: var(--chalk); }
+  .sitenav a[aria-current="page"] { color: var(--turf); font-weight: 600; }
+  .sitenav .home { color: var(--chalk); font-weight: 700; margin-right: .4rem; }
+</style>
+</head>
+<body>
+
+<nav class="sitenav">
+  <div class="sitenav-inner">
+    <a class="home" href="index.html">PL outcome model</a>
+    <a href="how-it-works.html">how it works</a>
+    <a href="pipeline.html">pipeline</a>
+    <a href="random-forest.html">random forest</a>
+    <a href="playground.html" aria-current="page">playground</a>
+    <a href="predictions.html">predictions</a>
+  </div>
+</nav>
+
+<div class="wrap">
+
+<header class="hero">
+  <div class="col">
+    <p class="eyebrow">Environment fix &amp; interactive playground</p>
+    <h1>The blocked import, and a playground</h1>
+    <p class="lede">Windows <strong>Smart App Control</strong> silently stops
+    <code>import sklearn</code> on this machine. Here's <em>why</em>, a fix that keeps the
+    security feature switched on, and a <strong>live playground</strong> for the toy ML
+    concepts &mdash; running right in the page.</p>
+  </div>
+</header>
+
+<!-- ================================================ 1 -->
+<section>
+  <div class="col reveal">
+    <div class="part-head">
+      <span class="part-num">1</span>
+      <h2>Why the import fails</h2>
+    </div>
+    <p>Nothing is wrong with the code or with pip. The block happens deeper &mdash; at the
+    moment Windows is asked to load a compiled file into memory.</p>
+  </div>
+
+  <figure class="reveal">
+    <div class="scroll-x">
+      <svg viewBox="0 0 860 344" role="img" aria-label="import sklearn triggers a chain of imports ending at a scipy .pyd binary. Windows Smart App Control checks that binary for a trusted signature; an unsigned PyPI wheel is blocked and the import fails, a signed conda-forge binary is allowed and sklearn imports.">
+        <defs>
+          <marker id="a1" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0 0 L8 4 L0 8 z" fill="currentColor"/>
+          </marker>
+          <marker id="a1r" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0 0 L8 4 L0 8 z" fill="#dd5a41"/>
+          </marker>
+          <marker id="a1g" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0 0 L8 4 L0 8 z" fill="#4bb85a"/>
+          </marker>
+        </defs>
+
+        <g font-family="JetBrains Mono, monospace" text-anchor="middle">
+          <rect x="20" y="34" width="150" height="46" rx="6" fill="none" stroke="currentColor" stroke-width="1.5"/>
+          <text x="95" y="62" font-size="12" fill="currentColor">import sklearn</text>
+
+          <rect x="220" y="34" width="150" height="46" rx="6" fill="none" stroke="currentColor" stroke-width="1.5"/>
+          <text x="295" y="55" font-size="10.5" fill="#a0b1a1">pulls in</text>
+          <text x="295" y="71" font-size="12" fill="currentColor">scipy.linalg</text>
+
+          <rect x="420" y="34" width="185" height="46" rx="6" fill="none" stroke="currentColor" stroke-width="1.5"/>
+          <text x="512" y="55" font-size="10.5" fill="#a0b1a1">must load</text>
+          <text x="512" y="71" font-size="11" fill="currentColor">_decomp_&hellip;.pyd</text>
+        </g>
+        <g stroke="currentColor" stroke-width="1.5" fill="none">
+          <line x1="170" y1="57" x2="216" y2="57" marker-end="url(#a1)"/>
+          <line x1="370" y1="57" x2="416" y2="57" marker-end="url(#a1)"/>
+        </g>
+
+        <line x1="512" y1="80" x2="512" y2="122" stroke="currentColor" stroke-width="1.5" fill="none" marker-end="url(#a1)"/>
+        <g font-family="JetBrains Mono, monospace" text-anchor="middle">
+          <rect x="360" y="122" width="304" height="66" rx="6" fill="#e7bd45" fill-opacity="0.10" stroke="#e7bd45" stroke-width="1.75"/>
+          <text x="512" y="146" font-size="12" fill="#e7bd45" font-weight="600">Smart App Control</text>
+          <text x="512" y="165" font-size="10.5" fill="#a0b1a1">"is this binary signed by someone</text>
+          <text x="512" y="179" font-size="10.5" fill="#a0b1a1">Microsoft already trusts?"</text>
+        </g>
+
+        <path d="M432 188 L300 238" stroke="#dd5a41" stroke-width="1.75" fill="none" marker-end="url(#a1r)"/>
+        <path d="M592 188 L692 238" stroke="#4bb85a" stroke-width="1.5" fill="none" marker-end="url(#a1g)"/>
+        <text x="350" y="222" font-family="JetBrains Mono, monospace" font-size="10" fill="#dd5a41" text-anchor="middle">unsigned (PyPI wheel)</text>
+        <text x="662" y="222" font-family="JetBrains Mono, monospace" font-size="10" fill="#4bb85a" text-anchor="middle">signed (conda-forge)</text>
+
+        <g font-family="JetBrains Mono, monospace" text-anchor="middle">
+          <rect x="70" y="238" width="330" height="72" rx="6" fill="#dd5a41" fill-opacity="0.12" stroke="#dd5a41" stroke-width="1.5"/>
+          <text x="235" y="262" font-size="11.5" fill="#dd5a41" font-weight="600">LOAD BLOCKED</text>
+          <text x="235" y="281" font-size="9.5" fill="#a0b1a1">ImportError: DLL load failed &mdash;</text>
+          <text x="235" y="295" font-size="9.5" fill="#a0b1a1">"a policy has blocked this file"</text>
+
+          <rect x="500" y="238" width="300" height="72" rx="6" fill="#4bb85a" fill-opacity="0.12" stroke="#4bb85a" stroke-width="1.5"/>
+          <text x="650" y="262" font-size="11.5" fill="#4bb85a" font-weight="600">LOAD ALLOWED</text>
+          <text x="650" y="281" font-size="9.5" fill="#a0b1a1">signature chains to a trusted root</text>
+          <text x="650" y="295" font-size="9.5" fill="#a0b1a1">&rarr; sklearn imports normally</text>
+        </g>
+
+        <text x="20" y="332" font-family="Newsreader, serif" font-style="italic" font-size="12" fill="#a0b1a1">
+          the Python version is irrelevant &mdash; 3.12, 3.13, 3.14 all fail the same way, because the check is on the binary, not the interpreter
+        </text>
+      </svg>
+    </div>
+    <figcaption><b>The check is on the file's signature, not on your code.</b> PyPI wheels
+    ship compiled binaries that are <em>not</em> code-signed. Smart App Control &mdash;
+    enforced on this machine &mdash; refuses to load any unsigned binary, and the failure
+    surfaces as a confusing <code>ImportError</code> three libraries away from
+    <code>import sklearn</code>.</figcaption>
+  </figure>
+
+  <div class="col reveal">
+    <div class="callout">
+      <span class="kicker">What Smart App Control is</span>
+      <p>A Windows 11 security layer that blocks apps and drivers it can't verify as
+      trusted. Once it is <strong>on and enforcing</strong> it can only be turned
+      <em>off</em>, never back on, without a full Windows reset. So &ldquo;just disable
+      it&rdquo; is a one-way door you probably don't want for a side project.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================ 2 -->
+<section>
+  <div class="col reveal">
+    <div class="part-head">
+      <span class="part-num">2</span>
+      <h2>The fix: signed binaries from conda-forge</h2>
+    </div>
+    <p>The right-hand branch of the diagram is the answer. <strong>conda-forge</strong>
+    ships the same scientific libraries with <strong>code-signed binaries</strong>, and
+    Smart App Control accepts them. The security setting doesn't change &mdash; you are just
+    installing files that pass its check.</p>
+
+    <ol class="steps">
+      <li>
+        <span class="step-n">1</span>
+        <p>Install <strong>Miniforge</strong> (a minimal conda defaulting to conda-forge).
+        Its installer is itself signed &mdash; by NumFOCUS &mdash; so it runs fine.</p>
+      </li>
+      <li>
+        <span class="step-n">2</span>
+        <p>Create a project environment with <code>python=3.12</code> and the whole stack.
+        Every binary in it is signed.</p>
+      </li>
+      <li>
+        <span class="step-n">3</span>
+        <p>Register it as a Jupyter kernel and pick it in VS Code. The existing
+        <code>venv</code> can stay &mdash; it still runs everything except the sklearn
+        pieces.</p>
+      </li>
+    </ol>
+
+    <pre class="cmd"><span class="c"># 1 - install Miniforge (per-user, no admin, does not touch PATH)</span>
+<span class="c">#     download: github.com/conda-forge/miniforge/releases/latest</span>
+.\Miniforge3.exe /S /InstallationType=JustMe /RegisterPython=0 /D=%USERPROFILE%\miniforge3
+
+<span class="c"># 2 - create the signed environment  (a path without spaces avoids a warning)</span>
+<span class="g">&</span> $env:USERPROFILE\miniforge3\Scripts\conda.exe create -y -p $env:USERPROFILE\pl-predictor-env `
+    python=3.12 numpy pandas scikit-learn xgboost matplotlib jupyter pyarrow joblib
+
+<span class="c"># 3 - verify the exact import that was failing</span>
+<span class="g">&</span> $env:USERPROFILE\pl-predictor-env\python.exe -c "import sklearn, scipy; print(sklearn.__version__)"
+
+<span class="c"># register the kernel, then choose "PL Predictor (conda)" in VS Code</span>
+<span class="g">&</span> $env:USERPROFILE\pl-predictor-env\python.exe -m ipykernel install --user `
+    --name pl-predictor --display-name "PL Predictor (conda)"</pre>
+
+    <div class="callout turf">
+      <span class="kicker">Why this is the clean answer</span>
+      <p>Smart App Control stays <strong>on</strong>. No registry edits, no
+      <code>Unblock-File</code> (which would not help &mdash; this is not a
+      mark-of-the-web block), no reset. You work <em>with</em> the security model instead of
+      switching it off.</p>
+    </div>
+
+    <h3>If you'd rather not install conda</h3>
+    <p>The whole real pipeline already runs on <strong>XGBoost + numpy + pandas</strong>,
+    none of which trip the block. <code>model.ipynb</code> is written that way on purpose,
+    with the metrics (<code>confusion</code>, <code>log_loss</code>) hand-rolled in numpy.
+    You only need scikit-learn if you specifically want its
+    <code>RandomForestClassifier</code> &mdash; and the teaching notebook shows a hand-built
+    forest and XGBoost's <code>subsample</code> / <code>colsample_bytree</code> are the same
+    two ideas.</p>
+  </div>
+</section>
+
+<!-- ================================================ 3 -->
+<section>
+  <div class="col reveal">
+    <div class="part-head">
+      <span class="part-num">3</span>
+      <h2>Playground</h2>
+    </div>
+    <p>The six toy concepts from the teaching notebook, each rewritten as a small runnable
+    program you can edit in place. Pick a tab, change a number, press <strong>Run</strong>.</p>
+    <p>These are written in JavaScript, not Python &mdash; a browser page can't run the real
+    scientific Python stack &mdash; but the arithmetic is identical line for line, and
+    <code>print(...)</code> works the way you expect. The Python originals, and the
+    library cross-checks, are in <code>teaching-notebook.ipynb</code>.</p>
+  </div>
+
+  <div class="pg reveal" id="pg">
+    <div class="pg-tabs" id="pgTabs" role="tablist"></div>
+    <div class="pg-desc" id="pgDesc"></div>
+    <div class="pg-body">
+      <div class="pg-editor">
+        <textarea id="pgCode" spellcheck="false" aria-label="code editor"></textarea>
+        <div class="pg-run">
+          <button class="btn" id="pgRun">Run</button>
+          <button class="btn ghost" id="pgReset">Reset</button>
+          <span class="pg-kbd">Ctrl / &#8984; + Enter</span>
+        </div>
+      </div>
+      <div class="pg-out" id="pgOut"><span class="muted">output appears here</span></div>
+    </div>
+  </div>
+
+  <div class="col reveal">
+    <div class="callout">
+      <span class="kicker">Things to try</span>
+      <p><b>1</b> change a date so a shuffled test match lands mid-season.
+      <b>2</b> raise <code>m5</code>'s points and watch only the WRONG column move.
+      <b>3</b> flip a label and see which threshold wins.
+      <b>4</b> change the RNG seed for different bootstrap samples.
+      <b>5</b> push <code>ROUNDS</code> to 8 or <code>LR</code> to 1.5 and watch it converge or overshoot.
+      <b>6</b> edit a predicted label and recompute recall.</p>
+    </div>
+  </div>
+</section>
+
+<hr class="rule">
+<div class="col foot">
+  <p>Companion to <code>teaching-notebook.ipynb</code>,
+  <a href="random-forest.html">random forest</a> and <a href="pipeline.html">the pipeline</a>.
+  The conda fix gets scikit-learn working for real; the playground lets you poke at the ideas
+  with no environment at all.</p>
+</div>
+
+</div>
+
+<script>
+(function () {
+  // ---- tiny helpers exposed to snippet code ----
+  function mean(a) { return a.reduce(function (s, x) { return s + x; }, 0) / a.length; }
+  function sum(a) { return a.reduce(function (s, x) { return s + x; }, 0); }
+  function round(x, n) { n = n == null ? 3 : n; var p = Math.pow(10, n); return Math.round(x * p) / p; }
+  function counts(arr) { var m = {}; arr.forEach(function (v) { m[v] = (m[v] || 0) + 1; }); return m; }
+  function mode(arr) {
+    var c = counts(arr), best = null, bn = -1;
+    Object.keys(c).forEach(function (k) { if (c[k] > bn) { bn = c[k]; best = k; } });
+    return best;
+  }
+  function gini(labels) {
+    var n = labels.length; if (!n) return 0;
+    var c = counts(labels), t = 0;
+    Object.keys(c).forEach(function (k) { var p = c[k] / n; t += p * p; });
+    return 1 - t;
+  }
+  // a fixed-seed RNG (mulberry32) so "seed" is reproducible
+  function rng(seed) {
+    return function () {
+      seed |= 0; seed = seed + 0x6D2B79F5 | 0;
+      var t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+      t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
+  }
+  function randint(rnd, lo, hi, k) {         // k ints in [lo, hi)
+    var out = [];
+    for (var i = 0; i < k; i++) out.push(lo + Math.floor(rnd() * (hi - lo)));
+    return out;
+  }
+  function fmt(x, w, d) {                     // right-aligned fixed
+    var s = (typeof x === "number") ? (d == null ? String(x) : x.toFixed(d)) : String(x);
+    while (s.length < (w || 0)) s = " " + s;
+    return s;
+  }
+
+  // ---- snippets: {name, desc, code} ----
+  var SNIPPETS = [
+    {
+      name: "1 · shuffle vs chrono",
+      desc: "Ten dated matches, split 7/3 both ways. A random shuffle lets earlier matches land in test while later ones train \u2014 the leak. A chronological cut never does.",
+      code:
+"// 10 matches in date order\n" +
+"const M = ['m1','m2','m3','m4','m5','m6','m7','m8','m9','m10'];\n" +
+"const DATE = ['2024-08-10','2024-09-14','2024-10-05','2024-11-02','2024-12-07',\n" +
+"              '2025-01-11','2025-02-15','2025-03-08','2025-04-12','2025-05-17'];\n" +
+"const CUT = 7;\n" +
+"\n" +
+"// --- random shuffle ---\n" +
+"const rnd = rng(7);\n" +
+"const order = [...Array(10).keys()].sort(() => rnd() - 0.5);\n" +
+"const trA = order.slice(0, CUT).sort((a,b)=>a-b);\n" +
+"const teA = order.slice(CUT).sort((a,b)=>a-b);\n" +
+"const latestTrain = Math.max(...trA);\n" +
+"const leak = teA.filter(i => i < latestTrain).length;\n" +
+"print('SHUFFLE');\n" +
+"print('  train rows :', trA.map(i=>M[i]).join(' '));\n" +
+"print('  test  rows :', teA.map(i=>M[i]).join(' '));\n" +
+"print('  latest train date :', DATE[latestTrain]);\n" +
+"print('  earliest test date:', DATE[Math.min(...teA)]);\n" +
+"print('  test matches BEFORE last train match:', leak, leak ? '  <-- LEAK' : '');\n" +
+"\n" +
+"// --- chronological ---\n" +
+"const trB = [...Array(CUT).keys()];\n" +
+"const teB = [...Array(10).keys()].slice(CUT);\n" +
+"print('\\nCHRONO');\n" +
+"print('  train rows :', trB.map(i=>M[i]).join(' '));\n" +
+"print('  test  rows :', teB.map(i=>M[i]).join(' '));\n" +
+"print('  latest train date :', DATE[CUT-1]);\n" +
+"print('  earliest test date:', DATE[CUT]);\n" +
+"print('  test matches BEFORE last train match:', 0, '  <-- none');\n"
+    },
+    {
+      name: "2 · shift then roll",
+      desc: "One team, 6 matches. rolling(3) used directly includes the current match. shift(1) first moves it out of its own window \u2014 the answer stops being an input.",
+      code:
+"const points = [1, 0, 3, 0, 3, 3];   // draw, loss, win, loss, win, win\n" +
+"const W = 3;\n" +
+"\n" +
+"function rollMean(arr, w, shift) {\n" +
+"  return arr.map((_, i) => {\n" +
+"    const end = shift ? i : i + 1;         // shift(1) => window ends BEFORE row i\n" +
+"    const start = Math.max(0, end - w);\n" +
+"    const win = arr.slice(start, end);\n" +
+"    return win.length ? round(mean(win)) : NaN;\n" +
+"  });\n" +
+"}\n" +
+"\n" +
+"const wrong = rollMean(points, W, false);\n" +
+"const right = rollMean(points, W, true);\n" +
+"\n" +
+"print('match  points  roll_WRONG  roll_RIGHT');\n" +
+"points.forEach((p, i) => print(\n" +
+"  '  m' + (i+1) + fmt(p, 7) + fmt(wrong[i], 12) + fmt(right[i], 12)));\n" +
+"\n" +
+"const row = 4;   // m5\n" +
+"const wWin = points.slice(row - W + 1, row + 1);\n" +
+"const rWin = points.slice(row - W, row);\n" +
+"print('\\nrow ' + row + ' (m5, points = ' + points[row] + ')');\n" +
+"print('  WRONG window [' + wWin + '] -> ' + round(mean(wWin)) + '   contains m5 itself');\n" +
+"print('  RIGHT window [' + rWin + '] -> ' + round(mean(rWin)) + '   m2, m3, m4 only');\n"
+    },
+    {
+      name: "3 · Gini split search",
+      desc: "8 rows, one feature, 3 classes. For every midpoint threshold, compute the size-weighted Gini of the two child piles. The tree keeps the largest drop from the parent \u2014 the gain.",
+      code:
+"const X = [-120,-80,-30,-10, 20, 60, 90, 140];\n" +
+"const Y = ['A','A','D','A','D','H','H','H'];\n" +
+"\n" +
+"const parent = gini(Y);\n" +
+"print('parent pile: ' + JSON.stringify(counts(Y)) + '   Gini = ' + round(parent, 4) + '\\n');\n" +
+"\n" +
+"const vals = [...new Set(X)].sort((a,b)=>a-b);\n" +
+"const mids = vals.slice(1).map((v, i) => (v + vals[i]) / 2);\n" +
+"\n" +
+"print('threshold   nL nR   Gini_L  Gini_R   weighted   gain');\n" +
+"let best = null;\n" +
+"for (const t of mids) {\n" +
+"  const L = Y.filter((_, i) => X[i] <= t);\n" +
+"  const R = Y.filter((_, i) => X[i] >  t);\n" +
+"  const w = L.length/Y.length*gini(L) + R.length/Y.length*gini(R);\n" +
+"  const gain = parent - w;\n" +
+"  if (!best || gain > best.gain) best = { t, gain };\n" +
+"  print('  <= ' + fmt(t, 5) + '   ' + fmt(L.length,2) + ' ' + fmt(R.length,2) +\n" +
+"        '   ' + fmt(gini(L),6,3) + '  ' + fmt(gini(R),6,3) +\n" +
+"        '   ' + fmt(w,8,4) + '  ' + fmt(gain,6,4));\n" +
+"}\n" +
+"print('\\nbest split: elo_diff <= ' + best.t + '   gain ' + round(best.gain, 4));\n"
+    },
+    {
+      name: "4 · forest vote",
+      desc: "5 depth-1 trees, each fit to a different bootstrap sample (draw 10 rows with replacement) of the same 10-row data. Each votes on one holdout match; the majority wins.",
+      code:
+"const X = [-120,-95,-60,-30,-10, 15, 45, 70, 105, 150];\n" +
+"const Y = ['A','A','D','A','D','H','D','H','H','H'];\n" +
+"const holdoutX = 35, holdoutY = 'H';\n" +
+"\n" +
+"function stump(idx) {                       // idx = row indices of this sample\n" +
+"  const x = idx.map(i => X[i]), y = idx.map(i => Y[i]);\n" +
+"  const gp = gini(y);\n" +
+"  const vals = [...new Set(x)].sort((a,b)=>a-b);\n" +
+"  let best = null;\n" +
+"  for (let k = 1; k < vals.length; k++) {\n" +
+"    const t = (vals[k] + vals[k-1]) / 2;\n" +
+"    const yl = y.filter((_, i) => x[i] <= t);\n" +
+"    const yr = y.filter((_, i) => x[i] >  t);\n" +
+"    if (!yl.length || !yr.length) continue;\n" +
+"    const gain = gp - (yl.length/y.length*gini(yl) + yr.length/y.length*gini(yr));\n" +
+"    if (!best || gain > best.gain)\n" +
+"      best = { t, gain, labL: mode(yl), labR: mode(yr) };\n" +
+"  }\n" +
+"  return best;\n" +
+"}\n" +
+"\n" +
+"const rnd = rng(11);\n" +
+"const votes = [];\n" +
+"for (let i = 1; i <= 5; i++) {\n" +
+"  const idx = randint(rnd, 0, 10, 10);           // WITH replacement\n" +
+"  const s = stump(idx);\n" +
+"  const v = holdoutX <= s.t ? s.labL : s.labR;\n" +
+"  votes.push(v);\n" +
+"  const distinct = new Set(idx).size;\n" +
+"  print('tree ' + i + ': ' + distinct + '/10 rows | rule elo<= ' +\n" +
+"        s.t + ' -> ' + s.labL + ' else ' + s.labR + ' | vote ' + v);\n" +
+"}\n" +
+"const tally = counts(votes);\n" +
+"print('\\nvotes: ' + votes.join(' '));\n" +
+"print('tally: ' + JSON.stringify(tally));\n" +
+"print('forest says ' + mode(votes) + '   (actual ' + holdoutY + ')');\n"
+    },
+    {
+      name: "5 · boosting residuals",
+      desc: "Start from the mean. Each round fits a depth-1 tree to the residual \u2014 what the model so far still gets wrong \u2014 scaled by the learning rate. Watch the squared error fall.",
+      code:
+"const X = [-100,-60,-20, 10, 50, 90];\n" +
+"const Y = [  -2, -1,  0,  0,  1,  2];\n" +
+"const LR = 0.5, ROUNDS = 3;\n" +
+"\n" +
+"function stumpReg(x, r) {                   // depth-1 regression tree on residual r\n" +
+"  const vals = [...new Set(x)].sort((a,b)=>a-b);\n" +
+"  let best = null;\n" +
+"  for (let k = 1; k < vals.length; k++) {\n" +
+"    const t = (vals[k] + vals[k-1]) / 2;\n" +
+"    const rl = r.filter((_, i) => x[i] <= t);\n" +
+"    const rr = r.filter((_, i) => x[i] >  t);\n" +
+"    if (!rl.length || !rr.length) continue;\n" +
+"    const pl = mean(rl), pr = mean(rr);\n" +
+"    const sse = sum(rl.map(v => (v-pl)**2)) + sum(rr.map(v => (v-pr)**2));\n" +
+"    if (!best || sse < best.sse) best = { t, pl, pr, sse };\n" +
+"  }\n" +
+"  return best;\n" +
+"}\n" +
+"\n" +
+"let F = Y.map(() => mean(Y));\n" +
+"const sse = f => round(sum(f.map((v, i) => (Y[i]-v)**2)), 4);\n" +
+"print('round 0  pred [' + F.map(v=>round(v)) + ']  resid [' +\n" +
+"      F.map((v,i)=>round(Y[i]-v)) + ']  SSE ' + sse(F));\n" +
+"\n" +
+"for (let k = 1; k <= ROUNDS; k++) {\n" +
+"  const r = F.map((v, i) => Y[i] - v);\n" +
+"  const s = stumpReg(X, r);\n" +
+"  F = F.map((v, i) => v + LR * (X[i] <= s.t ? s.pl : s.pr));\n" +
+"  print('round ' + k + '  fit to resid [' + r.map(v=>round(v)) + ']');\n" +
+"  print('         new pred [' + F.map(v=>round(v)) + ']  new resid [' +\n" +
+"        F.map((v,i)=>round(Y[i]-v)) + ']  SSE ' + sse(F));\n" +
+"}\n"
+    },
+    {
+      name: "6 · confusion + log loss",
+      desc: "12 true/predicted labels. Count the 3\u00d73 matrix by hand, read recall and precision off it, then grade the probabilities with log loss. Accuracy hides that draws are the weak class.",
+      code:
+"const LAB = ['H','D','A'];\n" +
+"const ix = { H: 0, D: 1, A: 2 };\n" +
+"const yTrue = ['H','H','H','H','H','D','D','D','A','A','A','A'];\n" +
+"const yPred = ['H','H','H','A','D','H','A','D','A','A','H','A'];\n" +
+"\n" +
+"const cm = [[0,0,0],[0,0,0],[0,0,0]];\n" +
+"yTrue.forEach((t, i) => cm[ix[t]][ix[yPred[i]]]++);\n" +
+"\n" +
+"print('           pred H  pred D  pred A');\n" +
+"LAB.forEach((l, i) =>\n" +
+"  print('  actual ' + l + fmt(cm[i][0],5) + fmt(cm[i][1],8) + fmt(cm[i][2],8)));\n" +
+"const correct = cm[0][0] + cm[1][1] + cm[2][2];\n" +
+"print('  accuracy ' + correct + '/12 = ' + round(correct/12, 3));\n" +
+"\n" +
+"LAB.forEach((l, i) => {\n" +
+"  const rowSum = cm[i][0]+cm[i][1]+cm[i][2];\n" +
+"  const colSum = cm[0][i]+cm[1][i]+cm[2][i];\n" +
+"  print('  ' + l + ': recall ' + round(cm[i][i]/rowSum, 3) +\n" +
+"        '   precision ' + round(cm[i][i]/colSum, 3));\n" +
+"});\n" +
+"\n" +
+"const proba = [\n" +
+"  [.70,.20,.10],[.55,.25,.20],[.45,.30,.25],[.30,.25,.45],\n" +
+"  [.40,.35,.25],[.50,.30,.20],[.25,.30,.45],[.30,.40,.30],\n" +
+"  [.20,.25,.55],[.15,.20,.65],[.45,.30,.25],[.25,.25,.50]];\n" +
+"const loss = yTrue.map((t, i) => -Math.log(proba[i][ix[t]]));\n" +
+"print('\\nlog loss = ' + round(mean(loss), 4) +\n" +
+"      '   (uniform 1/3 guess scores ' + round(-Math.log(1/3), 4) + ')');\n"
+    }
+  ];
+
+  // ---- wiring ----
+  var tabs = document.getElementById("pgTabs");
+  var descEl = document.getElementById("pgDesc");
+  var codeEl = document.getElementById("pgCode");
+  var outEl = document.getElementById("pgOut");
+  var runBtn = document.getElementById("pgRun");
+  var resetBtn = document.getElementById("pgReset");
+  var active = 0;
+
+  SNIPPETS.forEach(function (s, i) {
+    var b = document.createElement("button");
+    b.className = "tablabel";
+    b.textContent = s.name;
+    b.setAttribute("role", "tab");
+    b.setAttribute("aria-selected", i === 0 ? "true" : "false");
+    b.addEventListener("click", function () { select(i); });
+    tabs.appendChild(b);
+  });
+
+  function select(i) {
+    active = i;
+    Array.prototype.forEach.call(tabs.children, function (b, j) {
+      b.setAttribute("aria-selected", j === i ? "true" : "false");
+    });
+    descEl.textContent = SNIPPETS[i].desc;
+    codeEl.value = SNIPPETS[i].code;
+    outEl.innerHTML = '<span class="muted">press Run</span>';
+  }
+
+  resetBtn.addEventListener("click", function () { select(active); });
+
+  codeEl.addEventListener("keydown", function (e) {
+    if (e.key === "Tab") {
+      e.preventDefault();
+      var s = this.selectionStart;
+      this.value = this.value.slice(0, s) + "  " + this.value.slice(this.selectionEnd);
+      this.selectionStart = this.selectionEnd = s + 2;
+    }
+    if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); run(); }
+  });
+
+  function run() {
+    var lines = [];
+    function print() {
+      lines.push(Array.prototype.map.call(arguments, function (a) {
+        return typeof a === "object" ? JSON.stringify(a) : String(a);
+      }).join(" "));
+    }
+    try {
+      var fn = new Function(
+        "print", "mean", "sum", "round", "counts", "mode", "gini",
+        "rng", "randint", "fmt",
+        '"use strict";\n' + codeEl.value
+      );
+      fn(print, mean, sum, round, counts, mode, gini, rng, randint, fmt);
+      outEl.textContent = lines.join("\n") || "(no output)";
+    } catch (err) {
+      outEl.innerHTML = "";
+      var pre = document.createTextNode(lines.join("\n") + (lines.length ? "\n\n" : ""));
+      var e = document.createElement("span");
+      e.className = "err";
+      e.textContent = String(err);
+      outEl.appendChild(pre);
+      outEl.appendChild(e);
+    }
+  }
+
+  runBtn.addEventListener("click", run);
+  select(0);
+
+  // ---- scroll reveal ----
+  var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (reduce) {
+    document.querySelectorAll(".reveal").forEach(function (el) { el.classList.add("in"); });
+  } else {
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) { if (e.isIntersecting) { e.target.classList.add("in"); io.unobserve(e.target); } });
+    }, { threshold: 0.08 });
+    document.querySelectorAll(".reveal").forEach(function (el) { io.observe(el); });
+  }
+})();
+</script>
+
+</body>
+</html>

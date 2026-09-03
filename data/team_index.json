@@ -1,0 +1,324 @@
+{
+ "Arsenal": {
+  "season": "2025-26",
+  "elo": 1720,
+  "pts_ewm": 2.35,
+  "xgd_ewm": 0.38,
+  "rank": 1
+ },
+ "Aston Villa": {
+  "season": "2025-26",
+  "elo": 1559,
+  "pts_ewm": 1.38,
+  "xgd_ewm": -0.01,
+  "rank": 4
+ },
+ "Birmingham": {
+  "season": "2010-11",
+  "elo": 1430,
+  "pts_ewm": 0.74,
+  "xgd_ewm": -0.93,
+  "rank": 17
+ },
+ "Blackburn": {
+  "season": "2011-12",
+  "elo": 1400,
+  "pts_ewm": 0.73,
+  "xgd_ewm": -0.43,
+  "rank": 19
+ },
+ "Blackpool": {
+  "season": "2010-11",
+  "elo": 1430,
+  "pts_ewm": 1.05,
+  "xgd_ewm": -0.32,
+  "rank": 18
+ },
+ "Bolton": {
+  "season": "2011-12",
+  "elo": 1408,
+  "pts_ewm": 1.1,
+  "xgd_ewm": -0.26,
+  "rank": 18
+ },
+ "Bournemouth": {
+  "season": "2025-26",
+  "elo": 1579,
+  "pts_ewm": 1.9,
+  "xgd_ewm": 0.15,
+  "rank": 6
+ },
+ "Bradford": {
+  "season": "2000-01",
+  "elo": 1364,
+  "pts_ewm": 0.73,
+  "xgd_ewm": -0.37,
+  "rank": 20
+ },
+ "Brentford": {
+  "season": "2025-26",
+  "elo": 1531,
+  "pts_ewm": 1.15,
+  "xgd_ewm": -0.23,
+  "rank": 9
+ },
+ "Brighton": {
+  "season": "2025-26",
+  "elo": 1555,
+  "pts_ewm": 1.57,
+  "xgd_ewm": 0.44,
+  "rank": 7
+ },
+ "Burnley": {
+  "season": "2025-26",
+  "elo": 1323,
+  "pts_ewm": 0.34,
+  "xgd_ewm": -0.49,
+  "rank": 19
+ },
+ "Cardiff": {
+  "season": "2018-19",
+  "elo": 1347,
+  "pts_ewm": 0.63,
+  "xgd_ewm": -0.14,
+  "rank": 18
+ },
+ "Charlton": {
+  "season": "2006-07",
+  "elo": 1416,
+  "pts_ewm": 0.84,
+  "xgd_ewm": -0.69,
+  "rank": 19
+ },
+ "Chelsea": {
+  "season": "2025-26",
+  "elo": 1534,
+  "pts_ewm": 1.04,
+  "xgd_ewm": -0.17,
+  "rank": 8
+ },
+ "Coventry": {
+  "season": "2000-01",
+  "elo": 1410,
+  "pts_ewm": 0.84,
+  "xgd_ewm": -0.21,
+  "rank": 19
+ },
+ "Crystal Palace": {
+  "season": "2025-26",
+  "elo": 1488,
+  "pts_ewm": 0.89,
+  "xgd_ewm": -0.08,
+  "rank": 15
+ },
+ "Derby": {
+  "season": "2007-08",
+  "elo": 1257,
+  "pts_ewm": 0.15,
+  "xgd_ewm": -0.56,
+  "rank": 20
+ },
+ "Everton": {
+  "season": "2025-26",
+  "elo": 1508,
+  "pts_ewm": 0.91,
+  "xgd_ewm": 0.05,
+  "rank": 12
+ },
+ "Fulham": {
+  "season": "2025-26",
+  "elo": 1497,
+  "pts_ewm": 1.08,
+  "xgd_ewm": -0.13,
+  "rank": 13
+ },
+ "Huddersfield": {
+  "season": "2018-19",
+  "elo": 1288,
+  "pts_ewm": 0.29,
+  "xgd_ewm": -0.55,
+  "rank": 20
+ },
+ "Hull": {
+  "season": "2016-17",
+  "elo": 1382,
+  "pts_ewm": 0.95,
+  "xgd_ewm": -0.26,
+  "rank": 18
+ },
+ "Ipswich": {
+  "season": "2024-25",
+  "elo": 1341,
+  "pts_ewm": 0.4,
+  "xgd_ewm": -0.39,
+  "rank": 19
+ },
+ "Leeds": {
+  "season": "2025-26",
+  "elo": 1501,
+  "pts_ewm": 1.81,
+  "xgd_ewm": -0.09,
+  "rank": 14
+ },
+ "Leicester": {
+  "season": "2024-25",
+  "elo": 1338,
+  "pts_ewm": 1.08,
+  "xgd_ewm": -0.28,
+  "rank": 18
+ },
+ "Liverpool": {
+  "season": "2025-26",
+  "elo": 1597,
+  "pts_ewm": 1.32,
+  "xgd_ewm": -0.12,
+  "rank": 5
+ },
+ "Luton": {
+  "season": "2023-24",
+  "elo": 1383,
+  "pts_ewm": 0.5,
+  "xgd_ewm": -0.44,
+  "rank": 18
+ },
+ "Man City": {
+  "season": "2025-26",
+  "elo": 1716,
+  "pts_ewm": 2.18,
+  "xgd_ewm": 0.54,
+  "rank": 2
+ },
+ "Man United": {
+  "season": "2025-26",
+  "elo": 1602,
+  "pts_ewm": 2.15,
+  "xgd_ewm": 0.24,
+  "rank": 3
+ },
+ "Middlesbrough": {
+  "season": "2016-17",
+  "elo": 1365,
+  "pts_ewm": 0.58,
+  "xgd_ewm": -0.35,
+  "rank": 19
+ },
+ "Newcastle": {
+  "season": "2025-26",
+  "elo": 1534,
+  "pts_ewm": 1.41,
+  "xgd_ewm": -0.02,
+  "rank": 11
+ },
+ "Norwich": {
+  "season": "2021-22",
+  "elo": 1288,
+  "pts_ewm": 0.47,
+  "xgd_ewm": -0.52,
+  "rank": 20
+ },
+ "Nott'm Forest": {
+  "season": "2025-26",
+  "elo": 1526,
+  "pts_ewm": 1.48,
+  "xgd_ewm": -0.06,
+  "rank": 16
+ },
+ "Portsmouth": {
+  "season": "2009-10",
+  "elo": 1396,
+  "pts_ewm": 1.09,
+  "xgd_ewm": -0.48,
+  "rank": 19
+ },
+ "QPR": {
+  "season": "2014-15",
+  "elo": 1380,
+  "pts_ewm": 0.92,
+  "xgd_ewm": -0.38,
+  "rank": 20
+ },
+ "Reading": {
+  "season": "2012-13",
+  "elo": 1374,
+  "pts_ewm": 0.79,
+  "xgd_ewm": -0.89,
+  "rank": 19
+ },
+ "Sheffield United": {
+  "season": "2023-24",
+  "elo": 1271,
+  "pts_ewm": 0.22,
+  "xgd_ewm": -0.49,
+  "rank": 20
+ },
+ "Southampton": {
+  "season": "2024-25",
+  "elo": 1255,
+  "pts_ewm": 0.32,
+  "xgd_ewm": -0.59,
+  "rank": 20
+ },
+ "Stoke": {
+  "season": "2017-18",
+  "elo": 1401,
+  "pts_ewm": 0.57,
+  "xgd_ewm": -0.41,
+  "rank": 20
+ },
+ "Sunderland": {
+  "season": "2025-26",
+  "elo": 1461,
+  "pts_ewm": 1.4,
+  "xgd_ewm": -0.16,
+  "rank": 10
+ },
+ "Swansea": {
+  "season": "2017-18",
+  "elo": 1424,
+  "pts_ewm": 0.61,
+  "xgd_ewm": -0.42,
+  "rank": 18
+ },
+ "Tottenham": {
+  "season": "2025-26",
+  "elo": 1432,
+  "pts_ewm": 0.97,
+  "xgd_ewm": 0.07,
+  "rank": 17
+ },
+ "Watford": {
+  "season": "2021-22",
+  "elo": 1316,
+  "pts_ewm": 0.36,
+  "xgd_ewm": -0.56,
+  "rank": 19
+ },
+ "West Brom": {
+  "season": "2020-21",
+  "elo": 1364,
+  "pts_ewm": 0.67,
+  "xgd_ewm": -0.68,
+  "rank": 19
+ },
+ "West Ham": {
+  "season": "2025-26",
+  "elo": 1442,
+  "pts_ewm": 0.95,
+  "xgd_ewm": -0.12,
+  "rank": 18
+ },
+ "Wigan": {
+  "season": "2012-13",
+  "elo": 1435,
+  "pts_ewm": 0.93,
+  "xgd_ewm": -0.03,
+  "rank": 18
+ },
+ "Wolves": {
+  "season": "2025-26",
+  "elo": 1360,
+  "pts_ewm": 0.7,
+  "xgd_ewm": -0.24,
+  "rank": 20
+ }
+}

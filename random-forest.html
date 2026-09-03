@@ -1,0 +1,612 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How a Random Forest Decides</title>
+<meta name="description" content="A plain-language walkthrough of the random forest classifier: one decision tree, the two kinds of randomness, the vote, and an everyday analogy.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400;1,6..72,500&family=JetBrains+Mono:wght@400;600&display=swap">
+
+<style>
+  :root {
+    --pitch: #10190f;
+    --panel: #17231533;
+    --panel-solid: #182616;
+    --chalk: #eef2ea;
+    --chalk-dim: #a0b1a1;
+    --line: #37503c;
+    --line-soft: #253a29;
+    --turf: #4bb85a;
+    --turf-deep: #2f8a3d;
+    --amber: #e7bd45;
+    --red: #dd5a41;
+    --measure: 40rem;
+    --gutter: clamp(1.25rem, 4vw, 3rem);
+    color-scheme: dark;
+  }
+  :root[data-theme="light"] {
+    --pitch: #f4f6f1;
+    --panel: #ffffff;
+    --panel-solid: #ffffff;
+    --chalk: #16241a;
+    --chalk-dim: #566b58;
+    --line: #c4d3c4;
+    --line-soft: #dde6dc;
+    --turf: #2f8a3d;
+    --turf-deep: #236c2f;
+    --amber: #a97d15;
+    --red: #c0432c;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) {
+      --pitch: #f4f6f1;
+      --panel: #ffffff;
+      --panel-solid: #ffffff;
+      --chalk: #16241a;
+      --chalk-dim: #566b58;
+      --line: #c4d3c4;
+      --line-soft: #dde6dc;
+      --turf: #2f8a3d;
+      --turf-deep: #236c2f;
+      --amber: #a97d15;
+      --red: #c0432c;
+      color-scheme: light;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    background: var(--pitch);
+    color: var(--chalk);
+    font-family: "Newsreader", Georgia, serif;
+    font-size: 1.09rem;
+    line-height: 1.66;
+    margin: 0;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 52rem; margin: 0 auto; padding: 0 var(--gutter) 7rem; }
+  .col { max-width: var(--measure); }
+
+  h1, h2, h3, .eyebrow, .kicker, figcaption b, .analogy-tag {
+    font-family: "Bricolage Grotesque", "Helvetica Neue", Arial, sans-serif;
+  }
+  h1 {
+    font-size: clamp(2.1rem, 5.5vw, 3.4rem);
+    font-weight: 800;
+    line-height: 1.04;
+    letter-spacing: -0.02em;
+    text-wrap: balance;
+    margin: 0 0 0.8rem;
+  }
+  h2 {
+    font-size: clamp(1.4rem, 3vw, 1.9rem);
+    font-weight: 700;
+    letter-spacing: -0.015em;
+    line-height: 1.15;
+    text-wrap: balance;
+    margin: 0;
+  }
+  h3 {
+    font-size: 1.05rem;
+    font-weight: 700;
+    margin: 2rem 0 0.5rem;
+    letter-spacing: -0.005em;
+  }
+  p { margin: 0 0 1.15rem; }
+  strong { font-weight: 500; color: var(--chalk); }
+  em { font-style: italic; }
+  a { color: var(--turf); text-underline-offset: 3px; }
+
+  .eyebrow {
+    font-size: 0.76rem;
+    font-weight: 700;
+    letter-spacing: 0.19em;
+    text-transform: uppercase;
+    color: var(--turf);
+    margin: 0 0 1.3rem;
+  }
+  .lede {
+    font-size: clamp(1.15rem, 2.1vw, 1.35rem);
+    line-height: 1.55;
+    color: var(--chalk-dim);
+  }
+  .lede strong { color: var(--chalk); font-weight: 500; }
+
+  header.hero {
+    padding: clamp(3rem, 11vh, 7rem) 0 clamp(2.2rem, 6vh, 4rem);
+    border-bottom: 1px solid var(--line);
+    margin-bottom: clamp(2.5rem, 7vh, 4.5rem);
+  }
+
+  section { margin-bottom: clamp(3rem, 8vh, 5rem); }
+  .part-head {
+    display: flex;
+    align-items: baseline;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+  .part-num {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--turf);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 0.16rem 0.72rem;
+    flex: none;
+    line-height: 1.4;
+  }
+
+  figure {
+    margin: 2rem 0 2.2rem;
+    padding: clamp(1rem, 3vw, 1.7rem);
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+  }
+  figure svg { display: block; width: 100%; height: auto; }
+  figcaption {
+    margin-top: 1rem;
+    font-size: 0.92rem;
+    line-height: 1.55;
+    color: var(--chalk-dim);
+    font-family: "Newsreader", Georgia, serif;
+  }
+  figcaption b {
+    color: var(--chalk);
+    font-weight: 600;
+    font-size: 0.88rem;
+  }
+  .scroll-x { overflow-x: auto; }
+
+  .callout {
+    border-left: 3px solid var(--amber);
+    padding: 0.15rem 0 0.15rem 1.15rem;
+    margin: 1.7rem 0;
+  }
+  .callout .kicker {
+    display: block;
+    font-size: 0.74rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--amber);
+    margin-bottom: 0.35rem;
+  }
+  .callout p { margin: 0; color: var(--chalk-dim); }
+  .callout p strong { color: var(--chalk); }
+
+  .analogy {
+    margin: 2.5rem 0 1rem;
+    padding: clamp(1.5rem, 4vw, 2.4rem);
+    background: var(--panel-solid);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+  }
+  .analogy-tag {
+    font-size: 0.74rem;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--turf);
+    display: block;
+    margin-bottom: 1rem;
+  }
+  .analogy p:last-child { margin-bottom: 0; }
+  .analogy .punch {
+    font-size: 1.2rem;
+    line-height: 1.5;
+    color: var(--chalk);
+  }
+
+  .mono { font-family: "JetBrains Mono", monospace; font-size: 0.88em; }
+
+  hr.rule { border: none; border-top: 1px solid var(--line); margin: 0 0 clamp(2.5rem, 7vh, 4.5rem); }
+
+  .foot {
+    margin-top: 3.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--line);
+    font-size: 0.92rem;
+    color: var(--chalk-dim);
+  }
+
+  :focus-visible { outline: 2px solid var(--turf); outline-offset: 3px; border-radius: 2px; }
+
+  .reveal { opacity: 0; transform: translateY(14px); transition: opacity .5s ease, transform .5s ease; }
+  .reveal.in { opacity: 1; transform: none; }
+  @media (prefers-reduced-motion: reduce) {
+    .reveal { opacity: 1; transform: none; transition: none; }
+  }
+
+  .sitenav { border-bottom: 1px solid var(--line); }
+  .sitenav-inner { max-width: 52rem; margin: 0 auto; padding: 1rem var(--gutter);
+    display: flex; flex-wrap: wrap; gap: .3rem 1.4rem; align-items: baseline; }
+  .sitenav a { font-family: "JetBrains Mono", monospace; font-size: .78rem; letter-spacing: .02em;
+    color: var(--chalk-dim); text-decoration: none; }
+  .sitenav a:hover { color: var(--chalk); }
+  .sitenav a[aria-current="page"] { color: var(--turf); font-weight: 600; }
+  .sitenav .home { color: var(--chalk); font-weight: 700; margin-right: .4rem; }
+</style>
+</head>
+<body>
+
+<nav class="sitenav">
+  <div class="sitenav-inner">
+    <a class="home" href="index.html">PL outcome model</a>
+    <a href="how-it-works.html">how it works</a>
+    <a href="pipeline.html">pipeline</a>
+    <a href="random-forest.html" aria-current="page">random forest</a>
+    <a href="playground.html">playground</a>
+    <a href="predictions.html">predictions</a>
+  </div>
+</nav>
+
+<div class="wrap">
+
+<header class="hero">
+  <div class="col">
+    <p class="eyebrow">A plain-language walkthrough</p>
+    <h1>How a random forest decides</h1>
+    <p class="lede">One decision tree is a self-built flowchart of yes/no questions. A random
+    forest is <strong>hundreds of them</strong>, each deliberately handicapped so they
+    disagree, voting together. Here is why that works &mdash; no code, no formulas.</p>
+  </div>
+</header>
+
+<!-- ============================ 1 -->
+<section>
+  <div class="col reveal">
+    <div class="part-head">
+      <span class="part-num">1</span>
+      <h2>What one decision tree does</h2>
+    </div>
+    <p>Imagine the training data as a big pile of past matches. Each match carries a tag for
+    what actually happened: <strong>home win</strong>, <strong>draw</strong>, or
+    <strong>away win</strong>. The pile is a jumble of all three.</p>
+
+    <p>The tree&rsquo;s whole job is to sort that jumble into smaller piles that are as
+    <em>pure</em> as possible &mdash; a pile that&rsquo;s nearly all home wins, another
+    that&rsquo;s nearly all away wins, and so on. It does this by asking one carefully chosen
+    question at a time.</p>
+
+    <h3>Choosing the first question</h3>
+    <p>The tree looks at every feature it&rsquo;s allowed to use, and for each one it tries
+    every sensible cut-off. Take the feature <span class="mono">home team&rsquo;s rating
+    minus away team&rsquo;s rating</span>. The tree asks: what if I split the pile at zero?
+    At +40? At +90? For each possible cut it looks at the two piles that would result and
+    measures how mixed each still is.</p>
+
+    <p>A cut that leaves two still-jumbled piles is useless. A cut that leaves
+    <em>&ldquo;mostly home wins on one side, mostly not-home on the other&rdquo;</em> has
+    genuinely separated the outcomes. The tree scores every feature at every threshold this
+    way, and picks the single best one. That becomes the top question.</p>
+  </div>
+
+  <figure class="reveal">
+    <div class="scroll-x">
+      <svg viewBox="0 0 720 432" role="img" aria-label="A mixed pile of 40 past matches is split by the question 'rating difference above 60?' into a left pile that is mostly home wins and a right pile that is mostly not-home. Each side is then split again by a different question into purer piles.">
+        <defs>
+          <marker id="tip" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0 0 L8 4 L0 8 z" fill="currentColor"/>
+          </marker>
+        </defs>
+
+        <!-- root pile -->
+        <g font-family="JetBrains Mono, monospace">
+          <rect x="270" y="16" width="180" height="60" rx="6" fill="none" stroke="currentColor" stroke-width="1.5"/>
+          <text x="360" y="38" font-size="11.5" fill="#a0b1a1" text-anchor="middle">the training pile</text>
+          <text x="360" y="58" font-size="12.5" fill="currentColor" text-anchor="middle" font-weight="600">18 H &middot; 10 D &middot; 12 A</text>
+        </g>
+
+        <!-- root question -->
+        <path d="M360 76 L360 104" stroke="currentColor" stroke-width="1.5" fill="none" marker-end="url(#tip)"/>
+        <g font-family="JetBrains Mono, monospace" text-anchor="middle">
+          <rect x="258" y="104" width="204" height="40" rx="6" fill="#4bb85a" fill-opacity="0.12" stroke="#4bb85a" stroke-width="1.5"/>
+          <text x="360" y="129" font-size="12" fill="#4bb85a">rating diff &gt; 60 ?</text>
+        </g>
+
+        <!-- branches -->
+        <path d="M300 144 L200 182" stroke="currentColor" stroke-width="1.5" fill="none" marker-end="url(#tip)"/>
+        <path d="M420 144 L520 182" stroke="currentColor" stroke-width="1.5" fill="none" marker-end="url(#tip)"/>
+        <text x="232" y="168" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#a0b1a1" text-anchor="middle">yes</text>
+        <text x="490" y="168" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#a0b1a1" text-anchor="middle">no</text>
+
+        <!-- left pile (purer, mostly H) -->
+        <g font-family="JetBrains Mono, monospace" text-anchor="middle">
+          <rect x="96" y="182" width="200" height="56" rx="6" fill="none" stroke="currentColor" stroke-width="1.5"/>
+          <text x="196" y="204" font-size="11" fill="#a0b1a1">favourite at home</text>
+          <text x="196" y="223" font-size="12.5" fill="currentColor" font-weight="600">14 H &middot; 3 D &middot; 2 A</text>
+        </g>
+        <!-- right pile (mostly not-H) -->
+        <g font-family="JetBrains Mono, monospace" text-anchor="middle">
+          <rect x="424" y="182" width="200" height="56" rx="6" fill="none" stroke="currentColor" stroke-width="1.5"/>
+          <text x="524" y="204" font-size="11" fill="#a0b1a1">evenly matched</text>
+          <text x="524" y="223" font-size="12.5" fill="currentColor" font-weight="600">4 H &middot; 7 D &middot; 10 A</text>
+        </g>
+
+        <!-- second-level questions, different features -->
+        <path d="M196 238 L196 262" stroke="currentColor" stroke-width="1.5" fill="none" marker-end="url(#tip)"/>
+        <path d="M524 238 L524 262" stroke="currentColor" stroke-width="1.5" fill="none" marker-end="url(#tip)"/>
+        <g font-family="JetBrains Mono, monospace" text-anchor="middle">
+          <rect x="98" y="262" width="196" height="38" rx="6" fill="#4bb85a" fill-opacity="0.10" stroke="#4bb85a" stroke-width="1.25"/>
+          <text x="196" y="286" font-size="11" fill="#4bb85a">home form &gt; 2.0 ?</text>
+          <rect x="426" y="262" width="196" height="38" rx="6" fill="#4bb85a" fill-opacity="0.10" stroke="#4bb85a" stroke-width="1.25"/>
+          <text x="524" y="286" font-size="11" fill="#4bb85a">away goals last 5 &gt; 8 ?</text>
+        </g>
+
+        <!-- leaves -->
+        <g font-family="JetBrains Mono, monospace" text-anchor="middle" font-size="11">
+          <path d="M150 300 L120 336" stroke="currentColor" stroke-width="1.25" fill="none" marker-end="url(#tip)"/>
+          <path d="M242 300 L272 336" stroke="currentColor" stroke-width="1.25" fill="none" marker-end="url(#tip)"/>
+          <path d="M478 300 L448 336" stroke="currentColor" stroke-width="1.25" fill="none" marker-end="url(#tip)"/>
+          <path d="M570 300 L600 336" stroke="currentColor" stroke-width="1.25" fill="none" marker-end="url(#tip)"/>
+
+          <rect x="66" y="336" width="108" height="52" rx="6" fill="#2f8a3d" fill-opacity="0.16" stroke="#2f8a3d" stroke-width="1.5"/>
+          <text x="120" y="356" fill="#a0b1a1" font-size="10">11 H &middot; 1 D &middot; 0 A</text>
+          <text x="120" y="374" fill="#4bb85a" font-weight="600">predict H</text>
+
+          <rect x="218" y="336" width="108" height="52" rx="6" fill="none" stroke="currentColor" stroke-width="1.25"/>
+          <text x="272" y="356" fill="#a0b1a1" font-size="10">3 H &middot; 2 D &middot; 2 A</text>
+          <text x="272" y="374" fill="currentColor" font-weight="600">predict H</text>
+
+          <rect x="394" y="336" width="108" height="52" rx="6" fill="none" stroke="currentColor" stroke-width="1.25"/>
+          <text x="448" y="356" fill="#a0b1a1" font-size="10">1 H &middot; 5 D &middot; 3 A</text>
+          <text x="448" y="374" fill="currentColor" font-weight="600">predict D</text>
+
+          <rect x="546" y="336" width="108" height="52" rx="6" fill="#2f8a3d" fill-opacity="0.16" stroke="#2f8a3d" stroke-width="1.5"/>
+          <text x="600" y="356" fill="#a0b1a1" font-size="10">3 H &middot; 2 D &middot; 7 A</text>
+          <text x="600" y="374" fill="#4bb85a" font-weight="600">predict A</text>
+        </g>
+
+        <text x="360" y="418" font-family="Newsreader, serif" font-style="italic" font-size="12" fill="#a0b1a1" text-anchor="middle">
+          each split is chosen to make its two child piles less mixed than the parent
+        </text>
+      </svg>
+    </div>
+    <figcaption><b>One tree, two levels deep.</b> The root question is whichever feature +
+    threshold best separates the whole pile. Each child pile is then split again &mdash;
+    <em>independently</em>, often on a different feature. A pile stops splitting once it is
+    pure, tiny, or a depth limit is hit; it is then labelled with its majority outcome.</figcaption>
+  </figure>
+
+  <div class="col reveal">
+    <h3>Why it keeps going</h3>
+    <p>After the first split, each of the two piles is still somewhat mixed. So the tree
+    repeats the entire procedure <em>within each pile separately</em>. The left pile might
+    now split best on recent scoring form; the right pile on something else entirely. Then
+    those piles split again. Every split makes the piles smaller and purer.</p>
+
+    <p>It stops splitting a pile when the pile is pure (all one outcome), or too small to be
+    worth it, or a preset depth limit is reached. Each final pile &mdash; a
+    <em>leaf</em> &mdash; is labelled with whichever outcome is most common in it.</p>
+
+    <p><strong>Making a prediction:</strong> a new match walks down the flowchart, answering
+    each question with its own values, until it lands in one leaf. That leaf&rsquo;s label is
+    the tree&rsquo;s answer.</p>
+
+    <div class="callout">
+      <span class="kicker">The catch with one tree</span>
+      <p>Grown deep, a single tree carves the data into tiny, hyper-specific pockets. It
+      ends up <strong>memorising quirks</strong> &mdash; &ldquo;matches in this narrow rating
+      band, after a short rest, tend to be draws&rdquo; &mdash; that were true of those 15
+      particular past matches and won&rsquo;t hold up on new ones. One tree is knowledgeable
+      but brittle.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================ 2 -->
+<section>
+  <div class="col reveal">
+    <div class="part-head">
+      <span class="part-num">2</span>
+      <h2>What &ldquo;random&rdquo; means</h2>
+    </div>
+    <p>A random forest builds hundreds of trees and deliberately handicaps each one in
+    <strong>two separate ways</strong>, so the trees don&rsquo;t all come out identical.</p>
+
+    <div class="callout">
+      <span class="kicker">Randomness one &mdash; a different sample of rows per tree</span>
+      <p>Before growing a tree, you draw a random sample of the training matches
+      <em>with replacement</em>: some matches get picked twice or three times, others not at
+      all. Each tree ends up trained on roughly <strong>two-thirds of the real data</strong>,
+      a slightly different two-thirds every time. No two trees have quite the same evidence,
+      so a quirk that dominated one tree&rsquo;s sample may be nearly absent from
+      another&rsquo;s.</p>
+    </div>
+
+    <div class="callout">
+      <span class="kicker">Randomness two &mdash; a different handful of features per split</span>
+      <p>When a tree picks its next question, it is <strong>not allowed to look at every
+      feature</strong>. At each split it&rsquo;s shown a small random subset &mdash; say 6 of
+      the 30-odd &mdash; and must choose the best question from only those 6. The next split
+      gets a different random 6.</p>
+    </div>
+
+    <h3>Why both matter</h3>
+    <p>The second one is the subtler win. Without it, one very strong feature &mdash; the
+    rating difference &mdash; would be picked as the top question by almost every tree,
+    because it really is the best single split most of the time. Every tree would start the
+    same way and look broadly alike.</p>
+
+    <p>And when trees look alike, <em>their mistakes look alike</em> &mdash; averaging
+    near-identical things changes nothing. By hiding the strongest feature from most splits,
+    you <strong>force</strong> some trees to build their logic around form, or shots, or
+    league position instead. Now the trees genuinely disagree: each has found a different,
+    partial view of what drives a result. The first kind of randomness stacks more variety
+    on top. The goal of both is the same &mdash; make the trees&rsquo; errors
+    <em>unrelated to each other</em>.</p>
+  </div>
+</section>
+
+<!-- ============================ 3 -->
+<section>
+  <div class="col reveal">
+    <div class="part-head">
+      <span class="part-num">3</span>
+      <h2>How the trees combine into one answer</h2>
+    </div>
+    <p>For a new match, every tree in the forest independently walks it down its own
+    flowchart and casts a vote &mdash; this tree says home, that one says draw, the next says
+    home again. The forest <strong>tallies the votes</strong>, and the outcome with the most
+    wins. (For a probability, it just reports the vote shares: 228 of 400 trees said home
+    &rarr; 57% home.)</p>
+  </div>
+
+  <figure class="reveal">
+    <div class="scroll-x">
+      <svg viewBox="0 0 720 300" role="img" aria-label="Nine trees each vote on the same match. Their votes are a noisy mix, but home wins gets the most. A bar shows the full 400-tree tally: home 228, draw 74, away 98.">
+        <text x="24" y="30" font-family="JetBrains Mono, monospace" font-size="11" fill="#a0b1a1">ONE NEW MATCH &mdash; each tree votes &rarr;</text>
+
+        <g font-family="JetBrains Mono, monospace" font-size="11" text-anchor="middle">
+          <g>
+            <rect x="24"  y="46" width="66" height="40" rx="5" fill="#2f8a3d" fill-opacity="0.18" stroke="#2f8a3d" stroke-width="1.25"/>
+            <text x="57" y="63" fill="#a0b1a1" font-size="9">tree 1</text><text x="57" y="79" fill="#4bb85a" font-weight="600">H</text>
+          </g>
+          <g>
+            <rect x="100" y="46" width="66" height="40" rx="5" fill="none" stroke="currentColor" stroke-width="1.25"/>
+            <text x="133" y="63" fill="#a0b1a1" font-size="9">tree 2</text><text x="133" y="79" fill="currentColor" font-weight="600">A</text>
+          </g>
+          <g>
+            <rect x="176" y="46" width="66" height="40" rx="5" fill="#2f8a3d" fill-opacity="0.18" stroke="#2f8a3d" stroke-width="1.25"/>
+            <text x="209" y="63" fill="#a0b1a1" font-size="9">tree 3</text><text x="209" y="79" fill="#4bb85a" font-weight="600">H</text>
+          </g>
+          <g>
+            <rect x="252" y="46" width="66" height="40" rx="5" fill="none" stroke="currentColor" stroke-width="1.25"/>
+            <text x="285" y="63" fill="#a0b1a1" font-size="9">tree 4</text><text x="285" y="79" fill="currentColor" font-weight="600">D</text>
+          </g>
+          <g>
+            <rect x="328" y="46" width="66" height="40" rx="5" fill="#2f8a3d" fill-opacity="0.18" stroke="#2f8a3d" stroke-width="1.25"/>
+            <text x="361" y="63" fill="#a0b1a1" font-size="9">tree 5</text><text x="361" y="79" fill="#4bb85a" font-weight="600">H</text>
+          </g>
+          <g>
+            <rect x="404" y="46" width="66" height="40" rx="5" fill="#2f8a3d" fill-opacity="0.18" stroke="#2f8a3d" stroke-width="1.25"/>
+            <text x="437" y="63" fill="#a0b1a1" font-size="9">tree 6</text><text x="437" y="79" fill="#4bb85a" font-weight="600">H</text>
+          </g>
+          <g>
+            <rect x="480" y="46" width="66" height="40" rx="5" fill="none" stroke="currentColor" stroke-width="1.25"/>
+            <text x="513" y="63" fill="#a0b1a1" font-size="9">tree 7</text><text x="513" y="79" fill="currentColor" font-weight="600">A</text>
+          </g>
+          <g>
+            <rect x="556" y="46" width="66" height="40" rx="5" fill="#2f8a3d" fill-opacity="0.18" stroke="#2f8a3d" stroke-width="1.25"/>
+            <text x="589" y="63" fill="#a0b1a1" font-size="9">tree 8</text><text x="589" y="79" fill="#4bb85a" font-weight="600">H</text>
+          </g>
+          <g>
+            <rect x="632" y="46" width="66" height="40" rx="5" fill="none" stroke="currentColor" stroke-width="1.25"/>
+            <text x="665" y="63" fill="#a0b1a1" font-size="9">tree 9</text><text x="665" y="79" fill="currentColor" font-weight="600">D</text>
+          </g>
+        </g>
+        <text x="24" y="110" font-family="Newsreader, serif" font-style="italic" font-size="12" fill="#a0b1a1">
+          individually noisy &mdash; trees 2, 7 wrong-footed by away form, trees 4, 9 hedged to a draw
+        </text>
+
+        <text x="24" y="150" font-family="JetBrains Mono, monospace" font-size="11" fill="#a0b1a1">ALL 400 TREES, TALLIED:</text>
+        <g>
+          <rect x="24" y="162" width="393.12" height="34" fill="#2f8a3d"/>
+          <rect x="417.12" y="162" width="127.56" height="34" fill="#37503c"/>
+          <rect x="544.68" y="162" width="168.96" height="34" fill="#7a4030"/>
+          <text x="220" y="184" font-family="JetBrains Mono, monospace" font-size="12" fill="#eef2ea" text-anchor="middle" font-weight="600">home &mdash; 228</text>
+          <text x="481" y="184" font-family="JetBrains Mono, monospace" font-size="11" fill="#eef2ea" text-anchor="middle">draw 74</text>
+          <text x="629" y="184" font-family="JetBrains Mono, monospace" font-size="11" fill="#eef2ea" text-anchor="middle">away 98</text>
+        </g>
+        <text x="24" y="224" font-family="JetBrains Mono, monospace" font-size="12" fill="#4bb85a">forest says: HOME  (57% &middot; 18% &middot; 25%)</text>
+
+        <text x="24" y="262" font-family="Newsreader, serif" font-style="italic" font-size="12.5" fill="#a0b1a1">
+          the wrong votes point in scattered directions and roughly cancel;
+        </text>
+        <text x="24" y="282" font-family="Newsreader, serif" font-style="italic" font-size="12.5" fill="#a0b1a1">
+          the shared signal &mdash; &ldquo;the favourite is home&rdquo; &mdash; is the one thing most trees agree on.
+        </text>
+      </svg>
+    </div>
+    <figcaption><b>The vote.</b> No single tree is trustworthy, but their errors pull in
+    different directions and dilute each other, while the real signal &mdash; the thing
+    that&rsquo;s genuinely in the data &mdash; is what most trees land on independently.</figcaption>
+  </figure>
+
+  <div class="col reveal">
+    <h3>Why the average beats the best single tree</h3>
+    <p>Every tree&rsquo;s answer is part <em>real signal</em> and part <em>random noise</em>.
+    The signal &mdash; &ldquo;a big rating advantage really does mean the favourite usually
+    wins&rdquo; &mdash; is something almost every tree picks up, because it&rsquo;s really
+    there in the data. The noise is the tree&rsquo;s own quirks: the odd threshold it landed
+    on because of the exact matches in its random sample.</p>
+
+    <p>When you tally hundreds of votes, the signal <strong>adds up</strong> &mdash; most
+    trees vote the same way for the real reason. The noise <strong>cancels out</strong>
+    &mdash; one tree&rsquo;s quirk says &ldquo;draw here&rdquo;, another&rsquo;s says
+    &ldquo;away here&rdquo;, and averaged across the forest these scattered errors mostly
+    wash away. You&rsquo;re left with mostly signal.</p>
+
+    <p>This only works because of Part 2. If the trees were near-copies of each other, they
+    would all make the <em>same</em> mistake on the same match, and averaging identical
+    mistakes still gives you that mistake. The randomness is what makes the errors
+    independent, and independent errors are the ones that cancel.</p>
+  </div>
+</section>
+
+<!-- ============================ 4 -->
+<section>
+  <div class="col reveal">
+    <div class="part-head">
+      <span class="part-num">4</span>
+      <h2>An everyday version</h2>
+    </div>
+
+    <div class="analogy">
+      <span class="analogy-tag">The jar of jelly beans</span>
+      <p class="punch">A big glass jar of jelly beans is passed around a room of 400 people.
+      Each person writes down a private guess at how many beans are inside.</p>
+      <p>Every individual guess is off &mdash; and not just a little. Some people are
+      chronic under-guessers who never appreciate how many small things fit in a container;
+      others always guess high. People near the window see the jar in good light; people at
+      the back barely see it. Each person&rsquo;s answer is shaped by their own blind spots,
+      the same way each tree is shaped by its limited sample and its limited view of the
+      features.</p>
+      <p>Yet when you average all 400 guesses, the result is famously close to the true
+      count &mdash; usually closer than any single person, including the experts. The
+      over-guessers and under-guessers pull in opposite directions and cancel. What
+      survives the averaging is the part everyone got <em>roughly</em> right from actually
+      looking at the jar.</p>
+      <p>A random forest is that room. Each tree is one biased guesser, looking at the
+      problem through a narrow slot. The forest is the average of the room &mdash; and the
+      slots are deliberate, because 400 people who all stood in the same spot and shared the
+      same blind spot would just be one bad guess repeated 400 times.</p>
+    </div>
+  </div>
+</section>
+
+<hr class="rule" style="margin-top:1rem;">
+<div class="col foot">
+  <p>Companion to <a href="how-it-works.html">how it works</a> and
+  <a href="pipeline.html">the pipeline</a> for the Premier League match-outcome model. That
+  project actually uses gradient-boosted trees rather than a forest — a chain, not a vote —
+  but the two ideas share the same building block: shallow trees splitting on
+  <span class="mono">home&nbsp;&minus;&nbsp;away</span> feature differences, with
+  <span class="mono">rating&nbsp;difference</span> (Elo) the strongest single split.</p>
+</div>
+
+</div>
+
+<script>
+  (function () {
+    var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduce) {
+      document.querySelectorAll(".reveal").forEach(function (el) { el.classList.add("in"); });
+      return;
+    }
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (e.isIntersecting) { e.target.classList.add("in"); io.unobserve(e.target); }
+      });
+    }, { threshold: 0.1 });
+    document.querySelectorAll(".reveal").forEach(function (el) { io.observe(el); });
+  })();
+</script>
+
+</body>
+</html>

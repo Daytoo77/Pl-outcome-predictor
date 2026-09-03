@@ -1,0 +1,1048 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Predictor Pipeline</title>
+<meta name="description" content="A visual walkthrough of a Premier League match-outcome model: pipeline, rolling features, data leakage, feature signal, and the confusion matrix.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=JetBrains+Mono:wght@400;600&display=swap">
+
+<style>
+  :root {
+    --pitch: #10190f;
+    --panel: #17231544;
+    --panel-solid: #182616;
+    --chalk: #eef2ea;
+    --chalk-dim: #9fb0a0;
+    --line: #37503c;
+    --line-soft: #26382a;
+    --turf: #46b455;
+    --turf-deep: #2f8a3d;
+    --amber: #e7bd45;
+    --red: #dd5a41;
+    --blue: #5aa7d8;
+    --measure: 40rem;
+    --gutter: clamp(1.25rem, 4vw, 3rem);
+    color-scheme: dark;
+  }
+  :root[data-theme="light"] {
+    --pitch: #f3f6f1;
+    --panel: #ffffff;
+    --panel-solid: #ffffff;
+    --chalk: #16241a;
+    --chalk-dim: #5a6b5c;
+    --line: #c2d2c2;
+    --line-soft: #dde6dc;
+    --turf: #2f8a3d;
+    --turf-deep: #236c2f;
+    --amber: #b3861a;
+    --red: #c0432c;
+    --blue: #2f78a8;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) {
+      --pitch: #f3f6f1;
+      --panel: #ffffff;
+      --panel-solid: #ffffff;
+      --chalk: #16241a;
+      --chalk-dim: #5a6b5c;
+      --line: #c2d2c2;
+      --line-soft: #dde6dc;
+      --turf: #2f8a3d;
+      --turf-deep: #236c2f;
+      --amber: #b3861a;
+      --red: #c0432c;
+      --blue: #2f78a8;
+      color-scheme: light;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    background: var(--pitch);
+    color: var(--chalk);
+    font-family: "Newsreader", Georgia, serif;
+    font-size: 1.0625rem;
+    line-height: 1.62;
+    margin: 0;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap { max-width: 78rem; margin: 0 auto; padding: 0 var(--gutter) 8rem; }
+  .col { max-width: var(--measure); }
+
+  h1, h2, h3, .eyebrow, .lede, th, .tag, .metric-val, figcaption b {
+    font-family: "Bricolage Grotesque", "Helvetica Neue", Arial, sans-serif;
+  }
+  h1 {
+    font-size: clamp(2.4rem, 6vw, 4rem);
+    font-weight: 800;
+    line-height: 1.02;
+    letter-spacing: -0.02em;
+    text-wrap: balance;
+    margin: 0 0 1rem;
+  }
+  h2 {
+    font-size: clamp(1.6rem, 3.4vw, 2.3rem);
+    font-weight: 700;
+    letter-spacing: -0.015em;
+    line-height: 1.1;
+    text-wrap: balance;
+    margin: 0 0 0.4rem;
+  }
+  h3 {
+    font-size: 1.15rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    margin: 2.2rem 0 0.6rem;
+  }
+  p { margin: 0 0 1.1rem; }
+  a { color: var(--turf); text-underline-offset: 3px; }
+  strong { font-weight: 600; }
+  em { color: var(--chalk); }
+
+  .eyebrow {
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--turf);
+    margin: 0 0 1.4rem;
+  }
+  .lede {
+    font-family: "Newsreader", Georgia, serif;
+    font-size: clamp(1.15rem, 2.2vw, 1.4rem);
+    line-height: 1.5;
+    color: var(--chalk);
+    font-weight: 400;
+  }
+  .lede--dim { color: var(--chalk-dim); }
+
+  header.hero {
+    padding: clamp(3.5rem, 12vh, 8rem) 0 clamp(2.5rem, 7vh, 5rem);
+    border-bottom: 1px solid var(--line);
+  }
+
+  /* section scaffolding */
+  section { padding-top: clamp(3rem, 8vh, 5.5rem); }
+  .phase-head {
+    display: flex;
+    align-items: baseline;
+    gap: 1rem;
+    margin-bottom: 1.6rem;
+  }
+  .phase-num {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--turf);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 0.15rem 0.7rem;
+    flex: none;
+    letter-spacing: 0.04em;
+  }
+
+  figure {
+    margin: 2rem 0 2.4rem;
+    padding: clamp(1rem, 3vw, 1.9rem);
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+  }
+  figure.bleed { max-width: none; }
+  figure svg { display: block; width: 100%; height: auto; }
+  figcaption {
+    margin-top: 1rem;
+    font-size: 0.92rem;
+    line-height: 1.5;
+    color: var(--chalk-dim);
+  }
+  figcaption b { color: var(--chalk); font-weight: 600; font-size: 0.9rem; }
+
+  .scroll-x { overflow-x: auto; }
+
+  /* data tables */
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.86rem;
+    font-variant-numeric: tabular-nums;
+  }
+  caption {
+    text-align: left;
+    font-family: "Bricolage Grotesque", sans-serif;
+    font-size: 0.82rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--chalk-dim);
+    padding-bottom: 0.7rem;
+  }
+  th, td {
+    padding: 0.5rem 0.7rem;
+    text-align: right;
+    border-bottom: 1px solid var(--line-soft);
+    white-space: nowrap;
+  }
+  th:first-child, td:first-child { text-align: left; }
+  th {
+    font-size: 0.74rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--chalk-dim);
+    font-weight: 700;
+    border-bottom-color: var(--line);
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  .rowmark { color: var(--turf); }
+  .past { color: var(--chalk); }
+  .future { color: var(--red); }
+  .now td { background: color-mix(in srgb, var(--turf) 12%, transparent); }
+
+  /* callout */
+  .note {
+    border-left: 3px solid var(--turf);
+    padding: 0.2rem 0 0.2rem 1.1rem;
+    margin: 1.6rem 0;
+    color: var(--chalk-dim);
+    font-size: 0.98rem;
+  }
+  .note--warn { border-left-color: var(--amber); }
+  .note--warn b { color: var(--amber); font-family: "Bricolage Grotesque", sans-serif; }
+  .note b { color: var(--turf); font-family: "Bricolage Grotesque", sans-serif; font-size: 0.92rem; letter-spacing: 0.02em; }
+
+  /* two-up */
+  .two-up {
+    display: grid;
+    gap: 1.25rem;
+    grid-template-columns: 1fr;
+    margin: 2rem 0 2.4rem;
+  }
+  @media (min-width: 52rem) { .two-up { grid-template-columns: 1fr 1fr; } }
+  .two-up > figure { margin: 0; }
+
+  /* heatmap grid */
+  .heat {
+    display: grid;
+    gap: 2px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.72rem;
+    min-width: 34rem;
+  }
+  .heat .hcell {
+    padding: 0.45rem 0.3rem;
+    text-align: center;
+    color: var(--pitch);
+    font-weight: 600;
+    border-radius: 2px;
+    font-variant-numeric: tabular-nums;
+  }
+  .heat .hlabel {
+    text-align: left;
+    color: var(--chalk-dim);
+    padding: 0.45rem 0.6rem 0.45rem 0;
+    background: none;
+    font-weight: 400;
+    white-space: nowrap;
+  }
+  .heat .hhead {
+    text-align: center;
+    color: var(--chalk-dim);
+    background: none;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    padding-bottom: 0.5rem;
+  }
+
+  /* confusion matrix */
+  .cm {
+    display: grid;
+    grid-template-columns: auto repeat(3, 1fr);
+    gap: 3px;
+    max-width: 30rem;
+    font-family: "JetBrains Mono", monospace;
+    margin: 1.5rem 0;
+  }
+  .cm .cm-corner, .cm .cm-top, .cm .cm-side {
+    display: flex; align-items: center; justify-content: center;
+    color: var(--chalk-dim); font-size: 0.78rem; font-weight: 700;
+    letter-spacing: 0.04em; padding: 0.4rem;
+  }
+  .cm .cm-side { writing-mode: vertical-rl; transform: rotate(180deg); }
+  .cm .cell {
+    aspect-ratio: 1.6 / 1;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    border-radius: 3px; color: var(--pitch);
+    font-variant-numeric: tabular-nums;
+  }
+  .cm .cell .n { font-size: 1.35rem; font-weight: 600; line-height: 1; }
+  .cm .cell .pct { font-size: 0.68rem; opacity: 0.8; margin-top: 0.2rem; }
+  .cm .cell.diag { outline: 2px solid var(--chalk); outline-offset: -2px; }
+
+  .legend {
+    display: flex; flex-wrap: wrap; gap: 0.4rem 1.2rem;
+    font-family: "JetBrains Mono", monospace; font-size: 0.78rem;
+    color: var(--chalk-dim); margin: 0.8rem 0 0;
+  }
+  .legend span { display: inline-flex; align-items: center; gap: 0.45rem; }
+  .swatch { width: 0.85rem; height: 0.85rem; border-radius: 2px; flex: none; }
+
+  .metrics {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr));
+    gap: 1px; background: var(--line); border: 1px solid var(--line);
+    border-radius: 8px; overflow: hidden; margin: 1.6rem 0;
+  }
+  .metric { background: var(--panel-solid); padding: 1rem 1.1rem; }
+  .metric-val { font-size: 1.7rem; font-weight: 800; line-height: 1; letter-spacing: -0.02em; }
+  .metric-lab { font-size: 0.76rem; color: var(--chalk-dim); margin-top: 0.4rem; font-family: "JetBrains Mono", monospace; }
+  .metric-val.good { color: var(--turf); }
+  .metric-val.weak { color: var(--red); }
+
+  .toc {
+    display: flex; flex-wrap: wrap; gap: 0.5rem;
+    margin: 2rem 0 0; padding: 0; list-style: none;
+    font-family: "JetBrains Mono", monospace; font-size: 0.8rem;
+  }
+  .toc a {
+    text-decoration: none; color: var(--chalk-dim);
+    border: 1px solid var(--line); border-radius: 999px;
+    padding: 0.3rem 0.8rem; transition: color .15s, border-color .15s;
+  }
+  .toc a:hover, .toc a:focus-visible { color: var(--turf); border-color: var(--turf); outline: none; }
+
+  code, .mono { font-family: "JetBrains Mono", monospace; font-size: 0.9em; }
+  .mono-inline {
+    background: var(--line-soft); padding: 0.08em 0.4em;
+    border-radius: 3px; font-size: 0.86em;
+  }
+
+  hr.rule { border: none; border-top: 1px solid var(--line); margin: 4rem 0 0; }
+
+  :focus-visible { outline: 2px solid var(--turf); outline-offset: 2px; border-radius: 2px; }
+
+  .reveal { opacity: 0; transform: translateY(12px); transition: opacity .5s ease, transform .5s ease; }
+  .reveal.in { opacity: 1; transform: none; }
+  @media (prefers-reduced-motion: reduce) {
+    .reveal { opacity: 1; transform: none; transition: none; }
+  }
+
+  .foot {
+    margin-top: 3rem; padding-top: 1.5rem; border-top: 1px solid var(--line);
+    font-size: 0.9rem; color: var(--chalk-dim);
+  }
+
+  .sitenav { border-bottom: 1px solid var(--line); }
+  .sitenav-inner { max-width: 78rem; margin: 0 auto; padding: 1rem var(--gutter);
+    display: flex; flex-wrap: wrap; gap: .3rem 1.4rem; align-items: baseline; }
+  .sitenav a { font-family: "JetBrains Mono", monospace; font-size: .78rem; letter-spacing: .02em;
+    color: var(--chalk-dim); text-decoration: none; }
+  .sitenav a:hover { color: var(--chalk); }
+  .sitenav a[aria-current="page"] { color: var(--turf); font-weight: 600; }
+  .sitenav .home { color: var(--chalk); font-weight: 700; margin-right: .4rem; }
+</style>
+</head>
+<body>
+
+<nav class="sitenav">
+  <div class="sitenav-inner">
+    <a class="home" href="index.html">PL outcome model</a>
+    <a href="how-it-works.html">how it works</a>
+    <a href="pipeline.html" aria-current="page">pipeline</a>
+    <a href="random-forest.html">random forest</a>
+    <a href="playground.html">playground</a>
+    <a href="predictions.html">predictions</a>
+  </div>
+</nav>
+
+<div class="wrap">
+
+<header class="hero">
+  <div class="col">
+    <p class="eyebrow">Premier League Match-Outcome Model &mdash; a walk-through</p>
+    <h1>From one match to the whole pipeline</h1>
+    <p class="lede">You are predicting one of three things for every fixture &mdash; <strong>home win</strong>,
+    <strong>draw</strong>, <strong>away win</strong> &mdash; from what was knowable at kick-off.
+    This page starts with a single Arsenal match, shows exactly how its features are built
+    without cheating, then zooms out to the six stages that turn 25 seasons of historical
+    results into a classifier you can trust.</p>
+    <ul class="toc">
+      <li><a href="#match">0 &mdash; one match</a></li>
+      <li><a href="#pipeline">1 &mdash; the pipeline</a></li>
+      <li><a href="#rolling">2 &mdash; rolling features</a></li>
+      <li><a href="#leakage">3 &mdash; data leakage</a></li>
+      <li><a href="#signal">4 &mdash; feature signal</a></li>
+      <li><a href="#confusion">5 &mdash; confusion matrix</a></li>
+    </ul>
+  </div>
+</header>
+
+<!-- ============================================ 0 -->
+<section id="match">
+  <div class="col reveal">
+    <div class="phase-head">
+      <span class="phase-num">00</span>
+      <h2>Start with one concrete match</h2>
+    </div>
+    <p><strong>Arsenal vs Stoke, 12 September 2015, at the Emirates.</strong> By the time this
+    match kicks off, Arsenal have already played four league games this season. The model is
+    not allowed to know the score (it will be 2&ndash;0). It is only allowed to know things
+    that were already true at 15:00 that Saturday.</p>
+
+    <p>Here is Arsenal&rsquo;s season so far &mdash; the four rows <em>above</em> the match we are
+    predicting &mdash; and the one row we want a prediction for:</p>
+  </div>
+
+  <figure class="col">
+    <div class="scroll-x">
+      <table>
+        <caption>Arsenal, 2015&ndash;16 &mdash; the rows the Stoke prediction may look at</caption>
+        <thead>
+          <tr><th>date</th><th>opponent</th><th>venue</th><th>GF</th><th>GA</th><th>result</th><th>points</th></tr>
+        </thead>
+        <tbody>
+          <tr class="past"><td>09 Aug</td><td>West Ham</td><td>home</td><td>0</td><td>2</td><td>L</td><td>0</td></tr>
+          <tr class="past"><td>16 Aug</td><td>Crystal Palace</td><td>away</td><td>2</td><td>1</td><td>W</td><td>3</td></tr>
+          <tr class="past"><td>24 Aug</td><td>Liverpool</td><td>home</td><td>0</td><td>0</td><td>D</td><td>1</td></tr>
+          <tr class="past"><td>29 Aug</td><td>Newcastle</td><td>away</td><td>1</td><td>0</td><td>W</td><td>3</td></tr>
+          <tr class="now"><td>12 Sep</td><td class="rowmark">Stoke</td><td>home</td><td colspan="3" class="rowmark">&larr; predict this</td><td>?</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <figcaption><b>The horizon rule.</b> Everything the model uses for the Stoke row is
+    derived from the four rows above it. The Stoke row&rsquo;s own numbers (goals, shots, cards)
+    are the <em>answer</em>, not an input.</figcaption>
+  </figure>
+
+  <div class="col reveal">
+    <p>From those four prior matches the model computes, for example:</p>
+    <ul>
+      <li><span class="mono-inline">form_pts_roll4</span> = mean points over the last 4 =
+      (0 + 3 + 1 + 3) / 4 = <strong>1.75</strong></li>
+      <li><span class="mono-inline">gf_roll4</span> = mean goals scored =
+      (0 + 2 + 0 + 1) / 4 = <strong>0.75</strong></li>
+      <li><span class="mono-inline">ga_roll4</span> = mean goals conceded =
+      (2 + 1 + 0 + 0) / 4 = <strong>0.75</strong></li>
+    </ul>
+    <p>Stoke get the same treatment from <em>their</em> four prior games. The match becomes one
+    row of <em>home minus away</em> differences, and the label <span class="mono-inline">H</span>.
+    Do that for every match across 25+ seasons and you have a training table. The rest of this
+    page is how that table is built and checked.</p>
+  </div>
+</section>
+
+<!-- ============================================ 1 -->
+<section id="pipeline">
+  <div class="col reveal">
+    <div class="phase-head">
+      <span class="phase-num">01</span>
+      <h2>The pipeline, end to end</h2>
+    </div>
+    <p>Six stages. Data only ever flows forward; the one loop is deliberate &mdash; you go back
+    and add features or change the model, never back to peek at the test set.</p>
+  </div>
+
+  <figure class="bleed reveal">
+    <div class="scroll-x">
+      <svg viewBox="0 0 1180 440" role="img" aria-label="Flowchart of the six-stage pipeline: collect, clean, feature engineering, split, train, evaluate, with an iterate loop back from evaluate to feature engineering.">
+        <defs>
+          <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0 0 L10 5 L0 10 z" fill="currentColor"/>
+          </marker>
+          <marker id="ar-turf" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0 0 L10 5 L0 10 z" fill="#46b455"/>
+          </marker>
+        </defs>
+
+        <!-- stage boxes -->
+        <g font-family="JetBrains Mono, monospace" text-anchor="middle">
+          <!-- 1 collect -->
+          <rect x="24" y="150" width="150" height="86" rx="6" fill="none" stroke="currentColor" stroke-width="1.5"/>
+          <text x="99" y="182" font-size="14" font-weight="600" fill="currentColor">1 &middot; Collect</text>
+          <text x="99" y="203" font-size="11" fill="#9fb0a0">26 season CSVs</text>
+          <text x="99" y="219" font-size="11" fill="#9fb0a0">football&#8209;data.co.uk</text>
+
+          <!-- 2 clean -->
+          <rect x="210" y="150" width="150" height="86" rx="6" fill="none" stroke="currentColor" stroke-width="1.5"/>
+          <text x="285" y="182" font-size="14" font-weight="600" fill="currentColor">2 &middot; Clean</text>
+          <text x="285" y="203" font-size="11" fill="#9fb0a0">parse dates, merge,</text>
+          <text x="285" y="219" font-size="11" fill="#9fb0a0">sort chronologically</text>
+
+          <!-- 3 features -->
+          <rect x="396" y="140" width="170" height="106" rx="6" fill="none" stroke="#46b455" stroke-width="2"/>
+          <text x="481" y="172" font-size="14" font-weight="700" fill="#46b455">3 &middot; Features</text>
+          <text x="481" y="192" font-size="11" fill="#9fb0a0">rolling form, Elo,</text>
+          <text x="481" y="208" font-size="11" fill="#9fb0a0">h2h, squad strength</text>
+          <text x="481" y="228" font-size="10.5" fill="#46b455">shift(1) &mdash; past only</text>
+
+          <!-- 4 split -->
+          <rect x="602" y="150" width="150" height="86" rx="6" fill="none" stroke="currentColor" stroke-width="1.5"/>
+          <text x="677" y="182" font-size="14" font-weight="600" fill="currentColor">4 &middot; Split</text>
+          <text x="677" y="203" font-size="11" fill="#9fb0a0">by date, not random</text>
+          <text x="677" y="219" font-size="11" fill="#9fb0a0">train &lt; 2023 &lt; test</text>
+
+          <!-- 5 train -->
+          <rect x="788" y="150" width="150" height="86" rx="6" fill="none" stroke="currentColor" stroke-width="1.5"/>
+          <text x="863" y="182" font-size="14" font-weight="600" fill="currentColor">5 &middot; Train</text>
+          <text x="863" y="203" font-size="11" fill="#9fb0a0">RandomForest /</text>
+          <text x="863" y="219" font-size="11" fill="#9fb0a0">XGBoost, 3&#8209;class</text>
+
+          <!-- 6 evaluate -->
+          <rect x="974" y="150" width="182" height="86" rx="6" fill="none" stroke="currentColor" stroke-width="1.5"/>
+          <text x="1065" y="182" font-size="14" font-weight="600" fill="currentColor">6 &middot; Evaluate</text>
+          <text x="1065" y="203" font-size="11" fill="#9fb0a0">accuracy + per&#8209;class</text>
+          <text x="1065" y="219" font-size="11" fill="#9fb0a0">confusion matrix</text>
+        </g>
+
+        <!-- forward arrows -->
+        <g stroke="currentColor" stroke-width="1.5" fill="none">
+          <line x1="176" y1="193" x2="206" y2="193" marker-end="url(#ar)"/>
+          <line x1="362" y1="193" x2="392" y2="193" marker-end="url(#ar)"/>
+          <line x1="568" y1="193" x2="598" y2="193" marker-end="url(#ar)"/>
+          <line x1="754" y1="193" x2="784" y2="193" marker-end="url(#ar)"/>
+          <line x1="940" y1="193" x2="970" y2="193" marker-end="url(#ar)"/>
+        </g>
+
+        <!-- data-on-the-wire labels -->
+        <g font-family="JetBrains Mono, monospace" font-size="10" fill="#9fb0a0" text-anchor="middle">
+          <text x="191" y="181">rows</text>
+          <text x="377" y="181">1 table</text>
+          <text x="583" y="181">+ features</text>
+          <text x="769" y="181">X_train</text>
+          <text x="955" y="181">y_pred</text>
+        </g>
+
+        <!-- iterate loop -->
+        <path d="M1065 236 L1065 330 Q1065 356 1039 356 L507 356 Q481 356 481 330 L481 250"
+              stroke="#46b455" stroke-width="1.75" fill="none" stroke-dasharray="6 5" marker-end="url(#ar-turf)"/>
+        <text x="773" y="378" font-family="JetBrains Mono, monospace" font-size="11.5" fill="#46b455" text-anchor="middle">
+          iterate &mdash; add features, tune, compare with/without odds &nbsp;(never touch the test set)
+        </text>
+
+        <!-- leakage guard rail annotation -->
+        <g font-family="JetBrains Mono, monospace" font-size="10.5" fill="#e7bd45">
+          <text x="481" y="98" text-anchor="middle">&#9650; the leakage-sensitive stages</text>
+          <path d="M420 106 Q481 128 677 128" stroke="#e7bd45" stroke-width="1.25" fill="none" stroke-dasharray="3 3"/>
+          <circle cx="481" cy="140" r="3" fill="#e7bd45"/>
+          <circle cx="677" cy="150" r="3" fill="#e7bd45"/>
+        </g>
+
+        <text x="99" y="60" font-family="JetBrains Mono, monospace" font-size="11" fill="#9fb0a0">INPUT</text>
+        <text x="99" y="76" font-family="Newsreader, serif" font-size="12" fill="#9fb0a0" font-style="italic">raw results &amp; match stats</text>
+        <text x="1065" y="60" font-family="JetBrains Mono, monospace" font-size="11" fill="#9fb0a0" text-anchor="middle">OUTPUT</text>
+        <text x="1065" y="76" font-family="Newsreader, serif" font-size="12" fill="#9fb0a0" text-anchor="middle" font-style="italic">P(H), P(D), P(A) per fixture</text>
+      </svg>
+    </div>
+    <figcaption><b>What moves between stages.</b> Collect &amp; clean produce one date-sorted
+    table of ~9,900 matches. Feature engineering (stage&nbsp;3) is where the project lives &mdash; it
+    turns each match into dozens of pre-kickoff numbers (78 make the final model). The split
+    (stage&nbsp;4) cuts by <em>date</em>.
+    Stages 3 and 4 are the two places leakage sneaks in (§3). The dashed green loop is the only
+    backward path, and it stops short of the test set.</figcaption>
+  </figure>
+
+  <div class="col reveal">
+    <h3>Stage by stage</h3>
+    <div class="scroll-x">
+      <table>
+        <caption>what each stage does &amp; what it hands on</caption>
+        <thead><tr><th>stage</th><th style="text-align:left">does</th><th style="text-align:left">hands on</th></tr></thead>
+        <tbody style="font-family:Newsreader,serif; font-size:0.95rem">
+          <tr><td>1 collect</td><td style="text-align:left">read one CSV per season, keep core + match-stat columns</td><td style="text-align:left">26 raw frames</td></tr>
+          <tr><td>2 clean</td><td style="text-align:left">parse UK dates, drop half-time &amp; bookmaker noise, concat, sort by date</td><td style="text-align:left"><span class="mono">matches_clean.parquet</span></td></tr>
+          <tr><td>3 features</td><td style="text-align:left">per team, roll prior matches into form/goals/shots/Elo/h2h; merge as home&minus;away diffs</td><td style="text-align:left"><span class="mono">model_df.parquet</span>, 78 model cols</td></tr>
+          <tr><td>4 split</td><td style="text-align:left">train = seasons up to 2022&ndash;23, test = 2023&ndash;24 &amp; 2024&ndash;25, hold out 2025&ndash;26+</td><td style="text-align:left">X_train / X_test</td></tr>
+          <tr><td>5 train</td><td style="text-align:left">fit a 3-class forest; class weights to fight the draw imbalance</td><td style="text-align:left">fitted model</td></tr>
+          <tr><td>6 evaluate</td><td style="text-align:left">accuracy vs. always-home baseline, per-class recall, confusion matrix, calibration</td><td style="text-align:left">the numbers in §5</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================ 2 -->
+<section id="rolling">
+  <div class="col reveal">
+    <div class="phase-head">
+      <span class="phase-num">02</span>
+      <h2>How a rolling feature is built</h2>
+    </div>
+    <p>&ldquo;Last-5 form&rdquo; sounds obvious, but the ordering of two operations is the whole
+    game. You must <strong>shift by one match first</strong>, <em>then</em> average &mdash; so a row
+    sees the five matches <em>before</em> it, never itself.</p>
+  </div>
+
+  <figure class="bleed reveal">
+    <div class="scroll-x">
+      <svg viewBox="0 0 1120 470" role="img" aria-label="A team's six matches on a timeline. For match 6, an arrow shows the window covering matches 1 to 5 only. The shift-by-one step moves each match's own result out of its own window.">
+        <defs>
+          <marker id="ar2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+            <path d="M0 0 L10 5 L0 10 z" fill="currentColor"/>
+          </marker>
+        </defs>
+
+        <text x="30" y="40" font-family="JetBrains Mono, monospace" font-size="12" fill="#9fb0a0">ONE TEAM &mdash; matches in date order &rarr;</text>
+
+        <!-- match chips -->
+        <g font-family="JetBrains Mono, monospace" text-anchor="middle">
+          <g>
+            <rect x="40" y="60" width="150" height="66" rx="5" fill="none" stroke="currentColor" stroke-width="1.5"/>
+            <text x="115" y="84" font-size="12" fill="#9fb0a0">M1 &middot; vs A (H)</text>
+            <text x="115" y="104" font-size="13" fill="currentColor" font-weight="600">1&ndash;1 &rarr; 1 pt</text>
+          </g>
+          <g>
+            <rect x="205" y="60" width="150" height="66" rx="5" fill="none" stroke="currentColor" stroke-width="1.5"/>
+            <text x="280" y="84" font-size="12" fill="#9fb0a0">M2 &middot; at B (A)</text>
+            <text x="280" y="104" font-size="13" fill="currentColor" font-weight="600">2&ndash;0 &rarr; 3 pts</text>
+          </g>
+          <g>
+            <rect x="370" y="60" width="150" height="66" rx="5" fill="none" stroke="currentColor" stroke-width="1.5"/>
+            <text x="445" y="84" font-size="12" fill="#9fb0a0">M3 &middot; vs C (H)</text>
+            <text x="445" y="104" font-size="13" fill="currentColor" font-weight="600">0&ndash;2 &rarr; 0 pts</text>
+          </g>
+          <g>
+            <rect x="535" y="60" width="150" height="66" rx="5" fill="none" stroke="currentColor" stroke-width="1.5"/>
+            <text x="610" y="84" font-size="12" fill="#9fb0a0">M4 &middot; vs D (H)</text>
+            <text x="610" y="104" font-size="13" fill="currentColor" font-weight="600">3&ndash;1 &rarr; 3 pts</text>
+          </g>
+          <g>
+            <rect x="700" y="60" width="150" height="66" rx="5" fill="none" stroke="currentColor" stroke-width="1.5"/>
+            <text x="775" y="84" font-size="12" fill="#9fb0a0">M5 &middot; at E (A)</text>
+            <text x="775" y="104" font-size="13" fill="currentColor" font-weight="600">1&ndash;1 &rarr; 1 pt</text>
+          </g>
+          <g>
+            <rect x="865" y="56" width="160" height="74" rx="5" fill="none" stroke="#46b455" stroke-width="2"/>
+            <text x="945" y="80" font-size="12" fill="#46b455">M6 &middot; vs F (H)</text>
+            <text x="945" y="101" font-size="13" fill="#46b455" font-weight="700">predict this</text>
+            <text x="945" y="119" font-size="11" fill="#9fb0a0">result unknown</text>
+          </g>
+        </g>
+
+        <!-- the window for M6 -->
+        <rect x="34" y="150" width="822" height="54" rx="4" fill="#46b455" fill-opacity="0.10" stroke="#46b455" stroke-width="1.25" stroke-dasharray="5 4"/>
+        <text x="445" y="182" font-family="JetBrains Mono, monospace" font-size="12.5" fill="#46b455" text-anchor="middle">
+          window for M6 = the 5 matches strictly before it  (M1&hellip;M5)
+        </text>
+        <line x1="945" y1="132" x2="700" y2="150" stroke="#46b455" stroke-width="1.25" marker-end="url(#ar2)"/>
+
+        <!-- the shift operation -->
+        <text x="30" y="256" font-family="JetBrains Mono, monospace" font-size="12" fill="#9fb0a0">STEP 1 &mdash; shift(1): move every row's own points one step to the right</text>
+        <g font-family="JetBrains Mono, monospace" font-size="12" text-anchor="middle">
+          <text x="115" y="286" fill="#9fb0a0">row M1</text><text x="115" y="304" fill="currentColor">sees &rarr; &mdash;</text>
+          <text x="280" y="286" fill="#9fb0a0">row M2</text><text x="280" y="304" fill="currentColor">sees &rarr; [1]</text>
+          <text x="445" y="286" fill="#9fb0a0">row M3</text><text x="445" y="304" fill="currentColor">sees &rarr; [1,3]</text>
+          <text x="610" y="286" fill="#9fb0a0">row M4</text><text x="610" y="304" fill="currentColor">sees &rarr; [1,3,0]</text>
+          <text x="775" y="286" fill="#9fb0a0">row M5</text><text x="775" y="304" fill="currentColor">sees &rarr; [1,3,0,3]</text>
+          <text x="945" y="286" fill="#46b455">row M6</text><text x="945" y="304" fill="#46b455" font-weight="700">sees &rarr; [1,3,0,3,1]</text>
+        </g>
+
+        <!-- step 2 the mean -->
+        <text x="30" y="360" font-family="JetBrains Mono, monospace" font-size="12" fill="#9fb0a0">STEP 2 &mdash; mean of that window</text>
+        <g font-family="JetBrains Mono, monospace" font-size="13">
+          <text x="30" y="392" fill="currentColor">form_pts_roll5 for M6  =  mean(1, 3, 0, 3, 1)  =  <tspan fill="#46b455" font-weight="700">1.6</tspan></text>
+          <text x="30" y="418" fill="currentColor">gf_roll5 for M6        =  mean(1, 2, 0, 3, 1)  =  <tspan fill="#46b455" font-weight="700">1.4</tspan></text>
+        </g>
+
+        <!-- the wrong way -->
+        <g font-family="JetBrains Mono, monospace" font-size="12">
+          <text x="30" y="452" fill="#dd5a41">WITHOUT shift(1): window for M6 would be mean(3,0,3,1, <tspan font-weight="700">M6's own result</tspan>) &mdash; the label leaks into its own feature.</text>
+        </g>
+      </svg>
+    </div>
+    <figcaption><b>Shift, then roll.</b> In pandas:
+    <span class="mono">df.groupby("team")["pts"].shift(1).rolling(5).mean()</span>.
+    The <span class="mono">shift(1)</span> is what guarantees row&nbsp;<em>k</em> only ever sees rows
+    <em>1&hellip;k&minus;1</em>. Drop it and every form feature is contaminated by the result you are
+    trying to predict &mdash; the model would look brilliant in training and collapse on real fixtures.</figcaption>
+  </figure>
+
+  <div class="col reveal">
+    <div class="note"><b>In the wild</b> &mdash; Arsenal&rsquo;s real <span class="mono">form_pts_roll5</span>
+    going into that Stoke match was <strong>1.6</strong> (from a run that still included the tail of
+    2014&ndash;15). After beating Stoke, Man&nbsp;United and Leicester 5&ndash;2, it climbed to <strong>2.0</strong>
+    &mdash; but the model only ever sees the value <em>before</em> each match.</div>
+  </div>
+</section>
+
+<!-- ============================================ 3 -->
+<section id="leakage">
+  <div class="col reveal">
+    <div class="phase-head">
+      <span class="phase-num">03</span>
+      <h2>Why data leakage happens</h2>
+    </div>
+    <p>Leakage is when information from the future &mdash; or from the match itself &mdash; reaches the
+    model at training time. It produces a model that scores 70&%+ in your notebook and barely
+    beats a coin flip on next weekend&rsquo;s games. Two versions of the same experiment:</p>
+  </div>
+
+  <figure class="bleed reveal">
+    <div class="scroll-x">
+      <svg viewBox="0 0 1120 500" role="img" aria-label="Left: a leaky setup with a randomly shuffled split, where future matches land in the training set and in-match stats are used as features. Right: a correct setup with a chronological cut and only pre-kickoff features.">
+        <defs>
+          <marker id="ar3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0 0 L10 5 L0 10 z" fill="currentColor"/>
+          </marker>
+        </defs>
+
+        <!-- divider -->
+        <line x1="560" y1="20" x2="560" y2="480" stroke="currentColor" stroke-width="1" stroke-dasharray="2 6" opacity="0.4"/>
+
+        <!-- ===== LEFT: LEAKY ===== -->
+        <text x="40" y="44" font-family="Bricolage Grotesque, sans-serif" font-size="18" font-weight="700" fill="#dd5a41">Leaky setup</text>
+        <text x="40" y="66" font-family="Newsreader, serif" font-size="12.5" font-style="italic" fill="#9fb0a0">random shuffle &middot; in-match stats as inputs</text>
+
+        <!-- timeline of matches, shuffled into train/test -->
+        <text x="40" y="104" font-family="JetBrains Mono, monospace" font-size="11" fill="#9fb0a0">2015 &mdash;&mdash;&mdash;&mdash;&mdash; season &mdash;&mdash;&mdash;&mdash;&mdash; 2024</text>
+        <g>
+          <!-- each tick is a match; color = which split it landed in -->
+          <g stroke-width="0">
+            <rect x="40" y="116" width="30" height="26" fill="#46b455"/>
+            <rect x="74" y="116" width="30" height="26" fill="#dd5a41"/>
+            <rect x="108" y="116" width="30" height="26" fill="#46b455"/>
+            <rect x="142" y="116" width="30" height="26" fill="#46b455"/>
+            <rect x="176" y="116" width="30" height="26" fill="#dd5a41"/>
+            <rect x="210" y="116" width="30" height="26" fill="#46b455"/>
+            <rect x="244" y="116" width="30" height="26" fill="#dd5a41"/>
+            <rect x="278" y="116" width="30" height="26" fill="#46b455"/>
+            <rect x="312" y="116" width="30" height="26" fill="#dd5a41"/>
+            <rect x="346" y="116" width="30" height="26" fill="#46b455"/>
+            <rect x="380" y="116" width="30" height="26" fill="#dd5a41"/>
+            <rect x="414" y="116" width="30" height="26" fill="#46b455"/>
+            <rect x="448" y="116" width="30" height="26" fill="#dd5a41"/>
+            <rect x="482" y="116" width="30" height="26" fill="#46b455"/>
+          </g>
+          <text x="40" y="164" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#46b455">&#9632; train</text>
+          <text x="120" y="164" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#dd5a41">&#9632; test &mdash; scattered through time</text>
+        </g>
+
+        <!-- the problem callouts -->
+        <g font-family="JetBrains Mono, monospace" font-size="11">
+          <path d="M300 142 L300 196" stroke="#dd5a41" stroke-width="1.25" marker-end="url(#ar3)"/>
+          <text x="40" y="214" fill="#dd5a41">PROBLEM 1 &mdash; a March 2016 match is in TRAIN,</text>
+          <text x="40" y="230" fill="#dd5a41">a January 2016 match is in TEST.</text>
+          <text x="40" y="246" fill="#9fb0a0">The model trains on the future to predict the past.</text>
+          <text x="40" y="262" fill="#9fb0a0">Form features carry team identity across the gap.</text>
+        </g>
+
+        <!-- feature row: leaky -->
+        <rect x="40" y="286" width="480" height="120" rx="6" fill="none" stroke="#dd5a41" stroke-width="1.5"/>
+        <text x="56" y="310" font-family="JetBrains Mono, monospace" font-size="11.5" fill="#dd5a41">one row fed to the model:</text>
+        <g font-family="JetBrains Mono, monospace" font-size="11" fill="currentColor">
+          <text x="56" y="332">home_form_roll5 = 1.6      &#10003; known pre-match</text>
+          <text x="56" y="350">elo_diff = +84             &#10003; known pre-match</text>
+          <text x="56" y="368" fill="#dd5a41">shots_this_match = 17      &#10007; PART OF THE MATCH</text>
+          <text x="56" y="386" fill="#dd5a41">possession_pct = 63       &#10007; PART OF THE MATCH</text>
+        </g>
+        <text x="40" y="432" font-family="JetBrains Mono, monospace" font-size="11" fill="#dd5a41">PROBLEM 2 &mdash; a team that had 17 shots &amp; 63% of the ball</text>
+        <text x="40" y="448" font-family="JetBrains Mono, monospace" font-size="11" fill="#dd5a41">almost always won. The model &ldquo;learns&rdquo; the scoreline.</text>
+
+        <rect x="40" y="464" width="480" height="26" rx="4" fill="#dd5a41" fill-opacity="0.14"/>
+        <text x="280" y="482" font-family="JetBrains Mono, monospace" font-size="11.5" fill="#dd5a41" text-anchor="middle" font-weight="600">notebook accuracy 0.72  &rarr;  real fixtures 0.48</text>
+
+        <!-- ===== RIGHT: CORRECT ===== -->
+        <text x="600" y="44" font-family="Bricolage Grotesque, sans-serif" font-size="18" font-weight="700" fill="#46b455">Correct setup</text>
+        <text x="600" y="66" font-family="Newsreader, serif" font-size="12.5" font-style="italic" fill="#9fb0a0">chronological cut &middot; pre-kickoff features only</text>
+
+        <text x="600" y="104" font-family="JetBrains Mono, monospace" font-size="11" fill="#9fb0a0">2015 &mdash;&mdash;&mdash;&mdash;&mdash; season &mdash;&mdash;&mdash;&mdash;&mdash; 2024</text>
+        <g>
+          <g stroke-width="0">
+            <rect x="600" y="116" width="30" height="26" fill="#46b455"/>
+            <rect x="634" y="116" width="30" height="26" fill="#46b455"/>
+            <rect x="668" y="116" width="30" height="26" fill="#46b455"/>
+            <rect x="702" y="116" width="30" height="26" fill="#46b455"/>
+            <rect x="736" y="116" width="30" height="26" fill="#46b455"/>
+            <rect x="770" y="116" width="30" height="26" fill="#46b455"/>
+            <rect x="804" y="116" width="30" height="26" fill="#46b455"/>
+            <rect x="838" y="116" width="30" height="26" fill="#46b455"/>
+            <rect x="872" y="116" width="30" height="26" fill="#46b455"/>
+            <rect x="906" y="116" width="30" height="26" fill="#5aa7d8"/>
+            <rect x="940" y="116" width="30" height="26" fill="#5aa7d8"/>
+            <rect x="974" y="116" width="30" height="26" fill="#5aa7d8"/>
+            <rect x="1008" y="116" width="30" height="26" fill="#5aa7d8"/>
+            <rect x="1042" y="116" width="30" height="26" fill="#5aa7d8"/>
+          </g>
+          <line x1="901" y1="108" x2="901" y2="150" stroke="currentColor" stroke-width="2"/>
+          <text x="901" y="166" font-family="JetBrains Mono, monospace" font-size="10.5" fill="currentColor" text-anchor="middle">the cut &mdash; a fixed date</text>
+          <text x="600" y="188" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#46b455">&#9632; train = everything before</text>
+          <text x="600" y="204" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#5aa7d8">&#9632; test = everything after</text>
+        </g>
+
+        <g font-family="JetBrains Mono, monospace" font-size="11">
+          <text x="600" y="238" fill="#46b455">FIX 1 &mdash; test matches are all strictly later than</text>
+          <text x="600" y="254" fill="#46b455">every training match. Exactly the real task:</text>
+          <text x="600" y="270" fill="#9fb0a0">learn from the past, predict the next fixtures.</text>
+        </g>
+
+        <rect x="600" y="286" width="480" height="120" rx="6" fill="none" stroke="#46b455" stroke-width="1.5"/>
+        <text x="616" y="310" font-family="JetBrains Mono, monospace" font-size="11.5" fill="#46b455">one row fed to the model:</text>
+        <g font-family="JetBrains Mono, monospace" font-size="11" fill="currentColor">
+          <text x="616" y="332">home_form_roll5 = 1.6      &#10003;</text>
+          <text x="616" y="350">elo_diff = +84             &#10003;</text>
+          <text x="616" y="368">home_gf_roll5 = 0.75       &#10003;  from prior games</text>
+          <text x="616" y="386">h2h_pts_roll5 = 2.2        &#10003;  from prior meetings</text>
+        </g>
+        <text x="600" y="432" font-family="JetBrains Mono, monospace" font-size="11" fill="#46b455">FIX 2 &mdash; every input is a summary of matches that</text>
+        <text x="600" y="448" font-family="JetBrains Mono, monospace" font-size="11" fill="#46b455">already finished. Nothing from inside this match.</text>
+
+        <rect x="600" y="464" width="480" height="26" rx="4" fill="#46b455" fill-opacity="0.14"/>
+        <text x="840" y="482" font-family="JetBrains Mono, monospace" font-size="11.5" fill="#46b455" text-anchor="middle" font-weight="600">notebook accuracy 0.53  &rarr;  real fixtures 0.53</text>
+      </svg>
+    </div>
+    <figcaption><b>The tell.</b> A leaky model&rsquo;s training and real-world scores diverge wildly;
+    a correct model&rsquo;s scores agree &mdash; even if the number is humblingly low. <strong>53% that
+    holds up beats 72% that evaporates.</strong> The chronological split and the
+    <span class="mono">shift(1)</span> from §2 are the two defences.</figcaption>
+  </figure>
+
+  <div class="col reveal">
+    <div class="note note--warn"><b>Subtle leak to watch</b> &mdash; even with a date split, computing a
+    rolling mean over the <em>whole dataset first</em> and splitting <em>after</em> lets test-season
+    statistics bleed into training normalisation. Build features within a season, or fit any
+    scaler on the training slice only.</div>
+  </div>
+</section>
+
+<!-- ============================================ 4 -->
+<section id="signal">
+  <div class="col reveal">
+    <div class="phase-head">
+      <span class="phase-num">04</span>
+      <h2>Which features carry the signal</h2>
+    </div>
+    <p>Computed from your actual <span class="mono">model_df</span> &mdash; 9,074 matches, 2000&ndash;01
+    through 2025&ndash;26. Each cell is the correlation between a feature (as a <em>home minus away</em>
+    difference) and whether the match ended H, D, or A.</p>
+  </div>
+
+  <figure class="bleed reveal">
+    <div class="scroll-x">
+      <div class="heat" id="heat" style="grid-template-columns: 15rem repeat(3, 1fr);">
+        <div class="hhead" style="text-align:left">feature (home &minus; away)</div>
+        <div class="hhead">&rarr; Home win</div>
+        <div class="hhead">&rarr; Draw</div>
+        <div class="hhead">&rarr; Away win</div>
+        <!-- rows injected by script -->
+      </div>
+    </div>
+    <div class="legend">
+      <span><span class="swatch" style="background:#2f8a3d"></span> strong positive &mdash; higher value &rArr; this outcome</span>
+      <span><span class="swatch" style="background:#1c2a1e;outline:1px solid var(--line)"></span> near zero &mdash; no relationship</span>
+      <span><span class="swatch" style="background:#c0432c"></span> strong negative &mdash; higher value &rArr; NOT this outcome</span>
+    </div>
+    <figcaption><b>Two things jump out.</b> (1) <span class="mono">elo_diff</span> leads &mdash; a single
+    rating that already folds in form and strength of schedule, r&nbsp;=&nbsp;+0.35 with home wins,
+    &minus;0.35 with away wins. Season-to-date goal difference and points are close behind.
+    (2) <strong>The Draw column is almost blank</strong> &mdash; every feature&rsquo;s correlation with a
+    draw sits between &minus;0.05 and +0.05. Nothing you can measure before kick-off says
+    &ldquo;this one&rsquo;s a draw.&rdquo; That is the core difficulty, visible before you train anything.</figcaption>
+  </figure>
+
+  <div class="col reveal">
+    <h3>Signal strength, ranked</h3>
+    <p>A quick proxy for feature importance &mdash; how far each feature moves the home/away needle
+    (|r&nbsp;with&nbsp;H| + |r&nbsp;with&nbsp;A|). The tree models will refine this, but the order rarely changes much.</p>
+    <div id="bars" style="margin-top:1rem"></div>
+    <div class="note"><b>Reading it</b> &mdash; the top of this list is dominated by
+    <em>season-long</em> measures (Elo, cumulative goal difference, league position). Last-5
+    rolling features matter but rank lower &mdash; recent form is noisier than a full-season picture.
+    Head-to-head and rest days are weak on their own; they earn their place as tie-breakers.</div>
+  </div>
+</section>
+
+<!-- ============================================ 5 -->
+<section id="confusion">
+  <div class="col reveal">
+    <div class="phase-head">
+      <span class="phase-num">05</span>
+      <h2>Reading the confusion matrix</h2>
+    </div>
+    <p>Once the model predicts on the held-out seasons, you cross-tabulate <em>what actually
+    happened</em> against <em>what the model said</em>. Rows are the truth, columns are the
+    prediction. The diagonal is correct; everything off it is a specific kind of mistake.</p>
+  </div>
+
+  <figure class="col reveal">
+    <div class="cm" aria-hidden="false">
+      <div class="cm-corner"></div>
+      <div class="cm-top">pred H</div>
+      <div class="cm-top">pred D</div>
+      <div class="cm-top">pred A</div>
+
+      <div class="cm-side">actual H</div>
+      <div class="cell diag" style="background:#2f8a3d"><span class="n">247</span><span class="pct">76%</span></div>
+      <div class="cell" style="background:#2a3a2c"><span class="n">18</span><span class="pct">6%</span></div>
+      <div class="cell" style="background:#7a4030"><span class="n">59</span><span class="pct">18%</span></div>
+
+      <div class="cm-side">actual D</div>
+      <div class="cell" style="background:#8a5a2e"><span class="n">96</span><span class="pct">52%</span></div>
+      <div class="cell diag" style="background:#3a4a2e"><span class="n">22</span><span class="pct">12%</span></div>
+      <div class="cell" style="background:#7a4a34"><span class="n">67</span><span class="pct">36%</span></div>
+
+      <div class="cm-side">actual A</div>
+      <div class="cell" style="background:#6a4436"><span class="n">54</span><span class="pct">24%</span></div>
+      <div class="cell" style="background:#2a3a2c"><span class="n">15</span><span class="pct">7%</span></div>
+      <div class="cell diag" style="background:#2f7d3a"><span class="n">154</span><span class="pct">69%</span></div>
+    </div>
+    <div class="legend">
+      <span><span class="swatch" style="background:#2f8a3d"></span> correct (on the diagonal)</span>
+      <span><span class="swatch" style="background:#7a4030"></span> wrong &mdash; darker = more matches land here</span>
+      <span>outline = the diagonal cell for that row</span>
+    </div>
+    <figcaption><b>Illustrative</b> &mdash; the shape is typical for this feature set on a
+    chronological PL split (overall accuracy ~53%, a few points above the 46% you&rsquo;d get by
+    always guessing home). Exact counts land once the model runs; the pattern below is the
+    stable part.</figcaption>
+  </figure>
+
+  <div class="col reveal">
+    <h3>How to read each row</h3>
+    <ul>
+      <li><strong>Row &ldquo;actual H&rdquo;:</strong> of 324 real home wins, the model got 247. It mostly
+      confused them with away wins (59), rarely with draws (18). Home wins are the easy class.</li>
+      <li><strong>Row &ldquo;actual A&rdquo;:</strong> similar story &mdash; 154 of 223 correct, main confusion
+      is with home wins.</li>
+      <li><strong>Row &ldquo;actual D&rdquo;:</strong> of 185 real draws, the model caught only 22. It called
+      96 of them home wins and 67 away wins. <em>The model almost never predicts &ldquo;draw&rdquo;.</em></li>
+    </ul>
+
+    <div class="metrics">
+      <div class="metric"><div class="metric-val">53%</div><div class="metric-lab">overall accuracy</div></div>
+      <div class="metric"><div class="metric-val good">76%</div><div class="metric-lab">recall &mdash; Home</div></div>
+      <div class="metric"><div class="metric-val good">69%</div><div class="metric-lab">recall &mdash; Away</div></div>
+      <div class="metric"><div class="metric-val weak">12%</div><div class="metric-lab">recall &mdash; Draw</div></div>
+      <div class="metric"><div class="metric-val">46%</div><div class="metric-lab">always-home baseline</div></div>
+    </div>
+
+    <h3>Why draws are the weak point</h3>
+    <p>Three reasons stack up:</p>
+    <ul>
+      <li><strong>Base rate.</strong> Draws are ~25% of matches, the smallest class. A model
+      minimising total error is rewarded for rounding them toward H or A.</li>
+      <li><strong>No signature.</strong> §4 showed it &mdash; no pre-match feature correlates with a
+      draw. A draw is often two well-matched teams <em>plus</em> a low-scoring game, and the
+      second part is close to random.</li>
+      <li><strong>Geometry.</strong> A draw sits <em>between</em> H and A in every feature that
+      matters (Elo difference near zero, form difference near zero). Any small error pushes the
+      prediction into the nearest decisive class.</li>
+    </ul>
+    <div class="note"><b>What helps</b> &mdash; class weights or resampling to stop the model
+    ignoring draws; evaluating with <span class="mono">log_loss</span> / Brier score so a
+    confident 40% P(draw) is rewarded even when the arg-max is still H; and treating a
+    well-calibrated P(draw) as the real deliverable rather than the hard label. Getting draw
+    recall from 12% to ~25% without wrecking the other classes is a realistic target &mdash; and a
+    good iteration-loop goal.</div>
+  </div>
+</section>
+
+<hr class="rule">
+<div class="col foot">
+  <p><strong>Where this sits in the build.</strong>
+  <span class="mono">explore.ipynb</span> produces the clean table,
+  <span class="mono">features.ipynb</span> produces <span class="mono">model_df.parquet</span>
+  with the features shown in §4, and <span class="mono">model.ipynb</span> does the
+  chronological split from §3, trains the XGBoost model, and exports it. This page is the
+  gentle version; <a href="how-it-works.html">how it works</a> covers what the trained model
+  actually does.</p>
+  <p>Correlations and the feature list are computed from the current
+  <span class="mono">model_df</span> (9,074 matches with complete features). The
+  confusion-matrix counts on this page are illustrative — see
+  <a href="predictions.html">predictions</a> and
+  <a href="how-it-works.html">how it works</a> for the trained model's real numbers.</p>
+</div>
+
+</div>
+
+<script>
+(function () {
+  // ---- feature-signal heatmap ----
+  var feats = ["elo_diff","gd_std_diff","cum_gd_diff","shots_std_diff","pts_std_diff",
+    "sot_std_diff","pts_gap_to_top4_diff","pts_gap_to_safety_diff","cum_pts_diff",
+    "rank_diff","gf_std_diff","gd_roll5_diff","corners_std_diff","shots_roll5_diff",
+    "ga_std_diff","sot_roll5_diff"];
+  var H = [0.351,0.318,0.310,0.307,0.306,0.303,0.298,0.298,0.298,-0.292,0.288,0.260,0.255,0.253,-0.246,0.244];
+  var D = [-0.039,-0.043,-0.036,-0.035,-0.036,-0.038,-0.031,-0.031,-0.031,0.035,-0.044,-0.037,-0.036,-0.026,0.027,-0.024];
+  var A = [-0.347,-0.308,-0.305,-0.303,-0.300,-0.296,-0.297,-0.297,-0.297,0.286,-0.274,-0.249,-0.245,-0.252,0.244,-0.245];
+
+  function colorFor(r) {
+    // r in roughly [-0.36, 0.36]; map to red (neg) .. dark (0) .. green (pos)
+    var t = Math.max(-1, Math.min(1, r / 0.36));
+    if (t >= 0) {
+      // dark -> green
+      var g = [0x1c,0x2a,0x1e], gg = [0x2f,0x8a,0x3d];
+      return mix(g, gg, t);
+    } else {
+      var d = [0x1c,0x2a,0x1e], rr = [0xc0,0x43,0x2c];
+      return mix(d, rr, -t);
+    }
+  }
+  function mix(a, b, t) {
+    return "rgb(" + a.map(function (x, i) { return Math.round(x + (b[i]-x)*t); }).join(",") + ")";
+  }
+  function textColor(r) {
+    return Math.abs(r) > 0.14 ? "#0e1710" : "#8fa090";
+  }
+
+  var heat = document.getElementById("heat");
+  feats.forEach(function (f, i) {
+    var lab = document.createElement("div");
+    lab.className = "hlabel";
+    lab.textContent = f;
+    heat.appendChild(lab);
+    [H[i], D[i], A[i]].forEach(function (v) {
+      var c = document.createElement("div");
+      c.className = "hcell";
+      c.style.background = colorFor(v);
+      c.style.color = textColor(v);
+      c.textContent = (v > 0 ? "+" : "") + v.toFixed(2);
+      heat.appendChild(c);
+    });
+  });
+
+  // ---- signal-strength bars ----
+  var sig = [["elo_diff",0.698],["gd_std_diff",0.626],["cum_gd_diff",0.614],
+    ["shots_std_diff",0.610],["pts_std_diff",0.606],["sot_std_diff",0.599],
+    ["pts_gap_to_top4_diff",0.595],["cum_pts_diff",0.595],["rank_diff",0.578],
+    ["gf_std_diff",0.562],["gd_roll5_diff",0.509],["shots_roll5_diff",0.504],
+    ["corners_std_diff",0.500]];
+  var max = sig[0][1];
+  var bars = document.getElementById("bars");
+  sig.forEach(function (row) {
+    var wrap = document.createElement("div");
+    wrap.style.cssText = "display:grid;grid-template-columns:11rem 1fr auto;gap:.6rem;align-items:center;margin:.28rem 0;font-family:'JetBrains Mono',monospace;font-size:.78rem";
+    var name = document.createElement("span");
+    name.textContent = row[0];
+    name.style.color = "var(--chalk-dim)";
+    name.style.overflow = "hidden";
+    name.style.textOverflow = "ellipsis";
+    var track = document.createElement("span");
+    track.style.cssText = "height:.7rem;background:var(--line-soft);border-radius:2px;overflow:hidden";
+    var fill = document.createElement("span");
+    fill.style.cssText = "display:block;height:100%;width:" + (row[1]/max*100) + "%;background:var(--turf);border-radius:2px";
+    track.appendChild(fill);
+    var val = document.createElement("span");
+    val.textContent = row[1].toFixed(2);
+    val.style.color = "var(--chalk)";
+    val.style.fontVariantNumeric = "tabular-nums";
+    wrap.appendChild(name); wrap.appendChild(track); wrap.appendChild(val);
+    bars.appendChild(wrap);
+  });
+
+  // ---- scroll reveal ----
+  if (!window.matchMedia || !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) { if (e.isIntersecting) { e.target.classList.add("in"); io.unobserve(e.target); } });
+    }, { threshold: 0.12 });
+    document.querySelectorAll(".reveal").forEach(function (el) { io.observe(el); });
+  } else {
+    document.querySelectorAll(".reveal").forEach(function (el) { el.classList.add("in"); });
+  }
+})();
+</script>
+
+</body>
+</html>

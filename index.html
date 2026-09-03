@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Premier League Outcome Model</title>
+<meta name="description" content="A home / draw / away classifier for Premier League fixtures, priced against the bookmaker's line. Explainer pages, an interactive predictions browser, and the code.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+  :root {
+    --ground: #f4f2ea;
+    --raise: #fbfaf5;
+    --ink: #1b1e24;
+    --ink-soft: #55606e;
+    --hair: #d9d5c7;
+    --hair-soft: #e7e3d7;
+    --pitch: #3c8f4d;
+    --home: #c4881a;
+    --away: #1f8ea0;
+    --measure: 42rem;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #0f1216;
+      --raise: #161b21;
+      --ink: #e7eaf1;
+      --ink-soft: #9aa4b2;
+      --hair: #272d36;
+      --hair-soft: #1e242c;
+      --pitch: #57b56a;
+      --home: #e6b23f;
+      --away: #45b9cb;
+      color-scheme: dark;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--ground); color: var(--ink);
+    font-family: "Newsreader", Georgia, serif; font-size: 1.14rem; line-height: 1.62;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 58rem; margin: 0 auto; padding: 0 1.5rem; }
+  .col { max-width: var(--measure); }
+  h1, h2, .kicker, .card h3 { font-family: "Bricolage Grotesque", "Helvetica Neue", sans-serif; }
+  h1 { font-size: clamp(2.3rem, 6vw, 3.7rem); line-height: 1.04; font-weight: 800; letter-spacing: -0.02em; text-wrap: balance; margin: 0 0 .6rem; }
+  h2 { font-size: 1.1rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-soft); margin: 3.5rem 0 1.2rem; }
+  p { margin: 0 0 1.1rem; }
+  a { color: var(--away); text-underline-offset: 3px; }
+  code, .mono { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: .86em; }
+
+  .kicker { font-size: .82rem; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; color: var(--ink-soft); margin: 0 0 1.3rem; }
+  header.hero { padding: clamp(3.5rem, 9vw, 6.5rem) 0 2rem; }
+  .sub { font-size: 1.3rem; color: var(--ink-soft); }
+  .byline { margin-top: 1.6rem; font-size: .95rem; color: var(--ink-soft); font-family: "JetBrains Mono", monospace; }
+
+  .scores { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: 1px; background: var(--hair); border: 1px solid var(--hair); border-radius: 10px; overflow: hidden; margin: 2.2rem 0 0; }
+  .scores div { background: var(--raise); padding: 1rem 1.1rem; }
+  .scores .n { font-family: "JetBrains Mono", monospace; font-size: 1.5rem; font-weight: 600; }
+  .scores .n.good { color: var(--pitch); }
+  .scores .l { font-size: .76rem; color: var(--ink-soft); margin-top: .35rem; font-family: "JetBrains Mono", monospace; line-height: 1.35; }
+
+  .cards { display: grid; gap: 1rem; grid-template-columns: 1fr; margin: 0; padding: 0; list-style: none; }
+  @media (min-width: 40rem) { .cards { grid-template-columns: 1fr 1fr; } }
+  .card { display: block; background: var(--raise); border: 1px solid var(--hair); border-radius: 12px; padding: 1.3rem 1.4rem; text-decoration: none; color: inherit; transition: border-color .15s; }
+  .card:hover { border-color: var(--pitch); }
+  .card h3 { margin: 0 0 .35rem; font-size: 1.15rem; font-weight: 700; }
+  .card p { margin: 0; font-size: .96rem; color: var(--ink-soft); line-height: 1.5; }
+  .card .tag { font-family: "JetBrains Mono", monospace; font-size: .7rem; letter-spacing: .04em; text-transform: uppercase; color: var(--pitch); display: block; margin-bottom: .5rem; }
+
+  footer { border-top: 1px solid var(--hair); margin-top: 4rem; padding: 2.4rem 0 4rem; color: var(--ink-soft); font-size: .95rem; }
+  footer .mono { display: block; margin-top: .6rem; }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap col">
+    <p class="kicker">Premier League match-outcome model</p>
+    <h1>Predicting football against the bookmaker's line</h1>
+    <p class="sub">A home / draw / away classifier for Premier League fixtures, trained on 25
+      seasons and every feature knowable before kickoff. It starts from the vig-free market
+      price and only tries to improve on it.</p>
+    <p class="byline">9,074 matches · 78 pre-kickoff features · numpy / pandas / xgboost</p>
+    <div class="scores">
+      <div><div class="n good">0.946</div><div class="l">test log loss<br>market 0.949</div></div>
+      <div><div class="n">56.1%</div><div class="l">test accuracy<br>always-home 43.9%</div></div>
+      <div><div class="n">1.019</div><div class="l">holdout log loss<br>market 1.016</div></div>
+      <div><div class="n">5 / 7</div><div class="l">seasons beating<br>the market</div></div>
+    </div>
+  </div>
+</header>
+
+<main class="wrap col">
+
+  <h2>Read</h2>
+  <ul class="cards">
+    <a class="card" href="how-it-works.html">
+      <span class="tag">the real model</span>
+      <h3>How it works</h3>
+      <p>Pre-kickoff features, the market as a prior, boosted trees, a Dixon–Coles goal grid,
+        blend and calibration — stage by stage, with the scoreboard at the end.</p>
+    </a>
+    <a class="card" href="pipeline.html">
+      <span class="tag">the gentle version</span>
+      <h3>The pipeline</h3>
+      <p>One Arsenal match → features built without leakage → the six-stage pipeline → which
+        features carry the signal → reading a confusion matrix.</p>
+    </a>
+    <a class="card" href="random-forest.html">
+      <span class="tag">plain language</span>
+      <h3>How a random forest decides</h3>
+      <p>One decision tree, the two kinds of randomness that make trees disagree, why the
+        vote beats the best single tree, and a jar-of-jelly-beans analogy.</p>
+    </a>
+    <a class="card" href="playground.html">
+      <span class="tag">environment + toys</span>
+      <h3>The blocked import, and a playground</h3>
+      <p>Why scikit-learn won't load under Windows Smart App Control, the conda-forge fix,
+        and six ML concepts as small programs you can edit and run in the page.</p>
+    </a>
+  </ul>
+
+  <h2>Explore</h2>
+  <ul class="cards">
+    <a class="card" href="predictions.html">
+      <span class="tag">interactive</span>
+      <h3>Predictions browser</h3>
+      <p>Every held-out match the model was never shown: its probabilities, the most likely
+        scoreline, the signals behind the pick, and whether it was right. Plus a quick
+        estimate for any matchup.</p>
+    </a>
+    <!-- TODO: replace # with the GitHub repo URL once pushed -->
+    <a class="card" href="#">
+      <span class="tag">source</span>
+      <h3>The code</h3>
+      <p>Notebooks (<code>explore</code> → <code>features</code> → <code>model</code>), the
+        shared <code>pl_model.py</code> helpers, and the trained model JSON.</p>
+    </a>
+  </ul>
+
+</main>
+
+<footer>
+  <div class="wrap col">
+    <p>Draws are the hard class — no pre-kickoff feature correlates with a draw, so the model
+      treats a well-calibrated P(draw) as the deliverable rather than the hard label.</p>
+    <span class="mono">data: football-data.co.uk · FPL Core Insights — non-commercial use</span>
+  </div>
+</footer>
+
+</body>
+</html>

@@ -1,0 +1,27 @@
+# Python environments
+venv/
+condaenv/
+env/
+.venv/
+pl-predictor-env/
+
+# Python caches
+__pycache__/
+*.py[cod]
+*$py.class
+.ipynb_checkpoints/
+
+# Large derived data (regenerate from notebooks)
+*.parquet
+data/model_df.parquet
+data/matches_clean.parquet
+data/test_predictions.parquet
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Claude Code
+.claude/

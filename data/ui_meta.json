@@ -1,0 +1,276 @@
+{
+ "trained_matches": 8025,
+ "total_matches": 9074,
+ "n_features": 78,
+ "blend_w": 0.30000000000000004,
+ "dixon_coles_rho": -0.10999999999999999,
+ "test": {
+  "n": 699,
+  "model": {
+   "acc": 0.5608,
+   "logloss": 0.9459,
+   "rps": 0.1913
+  },
+  "market": {
+   "acc": 0.5594,
+   "logloss": 0.9492,
+   "rps": 0.193
+  },
+  "baseline_acc": 0.4392
+ },
+ "holdout": {
+  "n": 350,
+  "model": {
+   "acc": 0.4829,
+   "logloss": 1.0192,
+   "rps": 0.2051
+  },
+  "market": {
+   "acc": 0.4971,
+   "logloss": 1.0162,
+   "rps": 0.2041
+  },
+  "baseline_acc": 0.42
+ },
+ "importance": [
+  {
+   "feat": "mkt_pow_A",
+   "label": "market P(away), bias-adj",
+   "gain": 7.3
+  },
+  {
+   "feat": "shots_roll5_diff",
+   "label": "shots form",
+   "gain": 5.9
+  },
+  {
+   "feat": "xgd_ewm_diff",
+   "label": "xG-diff form (EWMA)",
+   "gain": 5.7
+  },
+  {
+   "feat": "clv_D",
+   "label": "draw line move",
+   "gain": 5.4
+  },
+  {
+   "feat": "shots_std_diff",
+   "label": "season shots/game",
+   "gain": 5.2
+  },
+  {
+   "feat": "sot_std_diff",
+   "label": "season SoT/game",
+   "gain": 5.1
+  },
+  {
+   "feat": "xg_roll5_diff",
+   "label": "xG form",
+   "gain": 5.1
+  },
+  {
+   "feat": "close_p_H",
+   "label": "closing P(home)",
+   "gain": 5.0
+  },
+  {
+   "feat": "mkt_overround",
+   "label": "bookmaker margin",
+   "gain": 4.8
+  },
+  {
+   "feat": "clv_H",
+   "label": "home line move",
+   "gain": 4.7
+  },
+  {
+   "feat": "xg_ewm_diff",
+   "label": "xG form (EWMA)",
+   "gain": 4.7
+  },
+  {
+   "feat": "mkt_supremacy",
+   "label": "market supremacy",
+   "gain": 4.6
+  },
+  {
+   "feat": "corners_std_diff",
+   "label": "season corners/game",
+   "gain": 4.6
+  },
+  {
+   "feat": "mkt_p_D",
+   "label": "market P(draw)",
+   "gain": 4.6
+  },
+  {
+   "feat": "mkt_p_H",
+   "label": "market P(home)",
+   "gain": 4.6
+  },
+  {
+   "feat": "games_played_diff",
+   "label": "games played gap",
+   "gain": 4.5
+  },
+  {
+   "feat": "elo_diff",
+   "label": "Elo rating gap",
+   "gain": 4.4
+  },
+  {
+   "feat": "shots_ewm_diff",
+   "label": "shots form (EWMA)",
+   "gain": 4.4
+  },
+  {
+   "feat": "mkt_xg_away",
+   "label": "market away xG",
+   "gain": 4.4
+  },
+  {
+   "feat": "sot_ewm_diff",
+   "label": "SoT form (EWMA)",
+   "gain": 4.3
+  },
+  {
+   "feat": "mkt_pow_D",
+   "label": "market P(draw), bias-adj",
+   "gain": 4.3
+  },
+  {
+   "feat": "mkt_entropy",
+   "label": "market uncertainty",
+   "gain": 4.2
+  }
+ ],
+ "calibration": [
+  {
+   "pred": 0.129,
+   "actual": 0.071,
+   "n": 70
+  },
+  {
+   "pred": 0.219,
+   "actual": 0.229,
+   "n": 70
+  },
+  {
+   "pred": 0.296,
+   "actual": 0.214,
+   "n": 70
+  },
+  {
+   "pred": 0.352,
+   "actual": 0.4,
+   "n": 70
+  },
+  {
+   "pred": 0.415,
+   "actual": 0.429,
+   "n": 70
+  },
+  {
+   "pred": 0.482,
+   "actual": 0.42,
+   "n": 69
+  },
+  {
+   "pred": 0.551,
+   "actual": 0.686,
+   "n": 70
+  },
+  {
+   "pred": 0.626,
+   "actual": 0.471,
+   "n": 70
+  },
+  {
+   "pred": 0.711,
+   "actual": 0.686,
+   "n": 70
+  },
+  {
+   "pred": 0.82,
+   "actual": 0.786,
+   "n": 70
+  }
+ ],
+ "rolling_origin": [
+  {
+   "season": "2018-19",
+   "n": 350,
+   "acc": 0.58,
+   "base": 0.477,
+   "model_ll": 0.895,
+   "market_ll": 0.897,
+   "A_ll": 0.888,
+   "edge": 0.002
+  },
+  {
+   "season": "2019-20",
+   "n": 350,
+   "acc": 0.531,
+   "base": 0.463,
+   "model_ll": 0.969,
+   "market_ll": 0.97,
+   "A_ll": 0.973,
+   "edge": 0.001
+  },
+  {
+   "season": "2020-21",
+   "n": 348,
+   "acc": 0.503,
+   "base": 0.382,
+   "model_ll": 1.0,
+   "market_ll": 1.0,
+   "A_ll": 1.003,
+   "edge": 0.0
+  },
+  {
+   "season": "2021-22",
+   "n": 350,
+   "acc": 0.589,
+   "base": 0.426,
+   "model_ll": 0.945,
+   "market_ll": 0.941,
+   "A_ll": 0.941,
+   "edge": -0.004
+  },
+  {
+   "season": "2022-23",
+   "n": 350,
+   "acc": 0.563,
+   "base": 0.486,
+   "model_ll": 0.953,
+   "market_ll": 0.956,
+   "A_ll": 0.956,
+   "edge": 0.003
+  },
+  {
+   "season": "2023-24",
+   "n": 349,
+   "acc": 0.59,
+   "base": 0.467,
+   "model_ll": 0.911,
+   "market_ll": 0.917,
+   "A_ll": 0.912,
+   "edge": 0.006
+  },
+  {
+   "season": "2024-25",
+   "n": 350,
+   "acc": 0.537,
+   "base": 0.411,
+   "model_ll": 0.978,
+   "market_ll": 0.981,
+   "A_ll": 0.979,
+   "edge": 0.003
+  }
+ ],
+ "outcome_dist": {
+  "H": 0.46,
+  "A": 0.293,
+  "D": 0.247
+ }
+}

@@ -1,0 +1,263 @@
+{
+ "labels": [
+  "H",
+  "D",
+  "A"
+ ],
+ "outcome_dist": {
+  "H": 0.46,
+  "A": 0.293,
+  "D": 0.247
+ },
+ "n_matches": 9074,
+ "seasons": [
+  "2000-01",
+  "2001-02",
+  "2002-03",
+  "2003-04",
+  "2004-05",
+  "2005-06",
+  "2006-07",
+  "2007-08",
+  "2008-09",
+  "2009-10",
+  "2010-11",
+  "2011-12",
+  "2012-13",
+  "2013-14",
+  "2014-15",
+  "2015-16",
+  "2016-17",
+  "2017-18",
+  "2018-19",
+  "2019-20",
+  "2020-21",
+  "2021-22",
+  "2022-23",
+  "2023-24",
+  "2024-25",
+  "2025-26"
+ ],
+ "corr_top": {
+  "features": [
+   "elo_diff",
+   "gd_std_diff",
+   "cum_gd_diff",
+   "shots_std_diff",
+   "pts_std_diff",
+   "sot_std_diff",
+   "pts_gap_to_top4_diff",
+   "pts_gap_to_safety_diff",
+   "cum_pts_diff",
+   "rank_diff",
+   "gf_std_diff",
+   "gd_roll5_diff",
+   "corners_std_diff",
+   "shots_roll5_diff",
+   "ga_std_diff",
+   "sot_roll5_diff"
+  ],
+  "H": [
+   0.351,
+   0.318,
+   0.31,
+   0.307,
+   0.306,
+   0.303,
+   0.298,
+   0.298,
+   0.298,
+   -0.292,
+   0.288,
+   0.26,
+   0.255,
+   0.253,
+   -0.246,
+   0.244
+  ],
+  "D": [
+   -0.039,
+   -0.043,
+   -0.036,
+   -0.035,
+   -0.036,
+   -0.038,
+   -0.031,
+   -0.031,
+   -0.031,
+   0.035,
+   -0.044,
+   -0.037,
+   -0.036,
+   -0.026,
+   0.027,
+   -0.024
+  ],
+  "A": [
+   -0.347,
+   -0.308,
+   -0.305,
+   -0.303,
+   -0.3,
+   -0.296,
+   -0.297,
+   -0.297,
+   -0.297,
+   0.286,
+   -0.274,
+   -0.249,
+   -0.245,
+   -0.252,
+   0.244,
+   -0.245
+  ]
+ },
+ "signal_top": [
+  [
+   "elo_diff",
+   0.698
+  ],
+  [
+   "gd_std_diff",
+   0.626
+  ],
+  [
+   "cum_gd_diff",
+   0.614
+  ],
+  [
+   "shots_std_diff",
+   0.61
+  ],
+  [
+   "pts_std_diff",
+   0.606
+  ],
+  [
+   "sot_std_diff",
+   0.599
+  ],
+  [
+   "pts_gap_to_top4_diff",
+   0.595
+  ],
+  [
+   "pts_gap_to_safety_diff",
+   0.595
+  ],
+  [
+   "cum_pts_diff",
+   0.595
+  ],
+  [
+   "rank_diff",
+   0.578
+  ],
+  [
+   "gf_std_diff",
+   0.562
+  ],
+  [
+   "gd_roll5_diff",
+   0.509
+  ],
+  [
+   "shots_roll5_diff",
+   0.504
+  ],
+  [
+   "corners_std_diff",
+   0.5
+  ]
+ ],
+ "arsenal_example": [
+  {
+   "date": "2015-08-09",
+   "opp": "West Ham",
+   "venue": "home",
+   "gf": 0,
+   "ga": 2,
+   "res": "L",
+   "pts": 0,
+   "form_before": 1.6,
+   "gf_roll5_before": 1.6
+  },
+  {
+   "date": "2015-08-16",
+   "opp": "Crystal Palace",
+   "venue": "away",
+   "gf": 2,
+   "ga": 1,
+   "res": "W",
+   "pts": 3,
+   "form_before": 1.0,
+   "gf_roll5_before": 1.0
+  },
+  {
+   "date": "2015-08-24",
+   "opp": "Liverpool",
+   "venue": "home",
+   "gf": 0,
+   "ga": 0,
+   "res": "D",
+   "pts": 1,
+   "form_before": 1.6,
+   "gf_roll5_before": 1.4
+  },
+  {
+   "date": "2015-08-29",
+   "opp": "Newcastle",
+   "venue": "away",
+   "gf": 1,
+   "ga": 0,
+   "res": "W",
+   "pts": 3,
+   "form_before": 1.6,
+   "gf_roll5_before": 1.2
+  },
+  {
+   "date": "2015-09-12",
+   "opp": "Stoke",
+   "venue": "home",
+   "gf": 2,
+   "ga": 0,
+   "res": "W",
+   "pts": 3,
+   "form_before": 2.0,
+   "gf_roll5_before": 1.4
+  },
+  {
+   "date": "2015-09-19",
+   "opp": "Chelsea",
+   "venue": "away",
+   "gf": 0,
+   "ga": 2,
+   "res": "L",
+   "pts": 0,
+   "form_before": 2.0,
+   "gf_roll5_before": 1.0
+  },
+  {
+   "date": "2015-09-26",
+   "opp": "Leicester",
+   "venue": "away",
+   "gf": 5,
+   "ga": 2,
+   "res": "W",
+   "pts": 3,
+   "form_before": 2.0,
+   "gf_roll5_before": 1.0
+  },
+  {
+   "date": "2015-10-04",
+   "opp": "Man United",
+   "venue": "home",
+   "gf": 3,
+   "ga": 0,
+   "res": "W",
+   "pts": 3,
+   "form_before": 2.0,
+   "gf_roll5_before": 1.6
+  }
+ ]
+}
