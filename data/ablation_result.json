@@ -1,0 +1,80 @@
+{
+  "ablation": [
+    {
+      "feature set": "form only",
+      "n_feats": 42,
+      "test_logloss": 0.9494,
+      "test_acc": 0.5608,
+      "2024-25_logloss": 0.9827,
+      "2024-25_acc": 0.5314
+    },
+    {
+      "feature set": "form + xG",
+      "n_feats": 50,
+      "test_logloss": 0.9491,
+      "test_acc": 0.5594,
+      "2024-25_logloss": 0.9817,
+      "2024-25_acc": 0.5343
+    },
+    {
+      "feature set": "+ market",
+      "n_feats": 69,
+      "test_logloss": 0.9455,
+      "test_acc": 0.5622,
+      "2024-25_logloss": 0.9813,
+      "2024-25_acc": 0.5314
+    },
+    {
+      "feature set": "+ squad  (=ALL)",
+      "n_feats": 78,
+      "test_logloss": 0.9462,
+      "test_acc": 0.5608,
+      "2024-25_logloss": 0.9804,
+      "2024-25_acc": 0.5314
+    }
+  ],
+  "squad_before_after": [
+    {
+      "variant": "without squad",
+      "slice": "test 23-25",
+      "n_feats": 69,
+      "logloss": 0.9455,
+      "acc": 0.5622
+    },
+    {
+      "variant": "without squad",
+      "slice": "2024-25 only",
+      "n_feats": 69,
+      "logloss": 0.9813,
+      "acc": 0.5314
+    },
+    {
+      "variant": "with squad (ALL)",
+      "slice": "test 23-25",
+      "n_feats": 78,
+      "logloss": 0.9462,
+      "acc": 0.5608
+    },
+    {
+      "variant": "with squad (ALL)",
+      "slice": "2024-25 only",
+      "n_feats": 78,
+      "logloss": 0.9804,
+      "acc": 0.5314
+    }
+  ],
+  "squad_features": [
+    "squad_price_total_diff",
+    "squad_price_top11_diff",
+    "bench_price_diff",
+    "squad_ppg_diff",
+    "gk_price_diff",
+    "def_price_diff",
+    "mid_price_diff",
+    "fwd_price_diff",
+    "att_edge_diff"
+  ],
+  "n_squad": 9,
+  "test_n": 699,
+  "test2425_n": 350
+}
