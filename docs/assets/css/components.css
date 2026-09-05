@@ -6,8 +6,8 @@
 .wrap { max-width: var(--wrap); margin: 0 auto; padding-left: var(--s-3); padding-right: var(--s-3); }
 @media (min-width: 768px) { .wrap { padding-left: var(--s-4); padding-right: var(--s-4); } }
 .prose { max-width: var(--measure); }
-.section { padding: var(--s-8) 0; }
-@media (min-width: 768px) { .section { padding: var(--s-10) 0; } }
+.section { padding-top: var(--s-8); padding-bottom: var(--s-8); }
+@media (min-width: 768px) { .section { padding-top: var(--s-10); padding-bottom: var(--s-10); } }
 .section + .section { border-top: 1px solid var(--line-soft); }
 .section-head { display: flex; gap: var(--s-2); align-items: baseline; margin-bottom: var(--s-3); }
 .section-num { flex: none; font-family: var(--mono); font-size: var(--fs-xs); font-weight: 600; color: var(--accent); border: 1px solid var(--line); border-radius: var(--r-pill); padding: 5px 10px; line-height: 1.2; }
@@ -27,6 +27,9 @@
 .wordmark { display: inline-flex; align-items: center; gap: 10px; min-height: 44px; font-weight: 600; font-size: var(--fs-sm); color: var(--ink); white-space: nowrap; }
 .wordmark:hover { text-decoration: none; color: var(--accent); }
 .wordmark svg { width: 22px; height: 22px; flex: none; }
+.mark-bg { fill: var(--accent); }
+.mark-fg { fill: var(--accent-ink); }
+.site-nav nav { margin-left: auto; min-width: 0; }
 .nav-links { display: flex; gap: var(--s-h); margin: 0 0 0 auto; padding: 0; list-style: none; }
 .nav-links li { margin: 0; max-width: none; }
 .nav-links a {
@@ -67,8 +70,8 @@ html:not(.js) .theme-toggle { display: none; }
 }
 
 /* ---------- hero ---------- */
-.hero { padding: var(--s-10) 0 var(--s-6); }
-@media (min-width: 768px) { .hero { padding: var(--s-12) 0 var(--s-8); } }
+.hero { padding-top: var(--s-10); padding-bottom: var(--s-6); }
+@media (min-width: 768px) { .hero { padding-top: var(--s-12); padding-bottom: var(--s-8); } }
 .hero h1 { max-width: 22ch; }
 .hero .lede { margin-top: var(--s-2); }
 .hero .byline { margin-top: var(--s-3); color: var(--ink-2); font-size: var(--fs-sm); }
@@ -236,7 +239,7 @@ select.field { appearance: none; -webkit-appearance: none; padding-right: 36px;
   body { font-size: 11pt; }
   .figure, .card, .stat, .panel, .table-card { box-shadow: none; border: 1px solid var(--line); }
   a[href^="http"]::after { content: " (" attr(href) ")"; font-size: 0.85em; color: var(--ink-2); word-break: break-all; }
-  .section { padding: var(--s-4) 0; }
+  .section { padding-top: var(--s-4); padding-bottom: var(--s-4); }
   h2, h3 { page-break-after: avoid; break-after: avoid; }
   .figure, table, .stat, .card { page-break-inside: avoid; break-inside: avoid; }
 }

@@ -11,6 +11,18 @@
   function apply(v) {
     if (v === 'light' || v === 'dark') root.setAttribute('data-theme', v);
     else root.removeAttribute('data-theme');
+    syncThemeColor();
+  }
+  /* keep the browser chrome colour in step with a manual theme choice, reading the token
+     rather than repeating a hex here */
+  function syncThemeColor() {
+    var metas = document.querySelectorAll('meta[name="theme-color"]');
+    if (!metas.length) return;
+    var bg = getComputedStyle(root).getPropertyValue('--bg').trim();
+    Array.prototype.forEach.call(metas, function (m) {
+      if (!m.hasAttribute('data-default')) m.setAttribute('data-default', m.getAttribute('content'));
+      m.setAttribute('content', root.hasAttribute('data-theme') ? bg : m.getAttribute('data-default'));
+    });
   }
 
   function initTheme() {
@@ -104,6 +116,6 @@
     return (d >= start && d < end) ? 'BST' : 'GMT';
   };
 
-  function init() { initTheme(); initNav(); initReveal(); initTocSpy(); }
+  function init() { syncThemeColor(); initTheme(); initNav(); initReveal(); initTocSpy(); }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
 })();

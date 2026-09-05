@@ -3,790 +3,437 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Reading the Match Before Kickoff</title>
-<meta name="description" content="A schematic walkthrough of the Premier League outcome model: features before kickoff, the market as a starting point, boosted trees, a Dixon–Coles goal grid, blend and calibration.">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500&family=JetBrains+Mono:wght@400;600&display=swap">
-
+<title>How it works · PL outcome model</title>
+<meta name="description" content="The real pipeline behind the Premier League outcome model: pre-kickoff features, the market as a prior, boosted trees, a Dixon–Coles goal grid, the blend, calibration, and the scoreboard.">
+<link rel="canonical" href="https://daytoo77.github.io/pl-outcome-predictor/how-it-works.html">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#f5f5f7">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#000000">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Premier League outcome model">
+<meta property="og:title" content="How the Premier League outcome model works">
+<meta property="og:description" content="Pre-kickoff features, the market as a prior, boosted trees, a Dixon–Coles goal grid, the blend, calibration, and the scoreboard.">
+<meta property="og:url" content="https://daytoo77.github.io/pl-outcome-predictor/how-it-works.html">
+<meta property="og:image" content="https://daytoo77.github.io/pl-outcome-predictor/assets/og/preview.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Premier League outcome model: test log loss 0.946 against the market's 0.949.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="How the Premier League outcome model works">
+<meta name="twitter:description" content="Pre-kickoff features, the market as a prior, boosted trees, a Dixon–Coles goal grid, the blend, calibration, and the scoreboard.">
+<meta name="twitter:image" content="https://daytoo77.github.io/pl-outcome-predictor/assets/og/preview.png">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<link rel="stylesheet" href="assets/css/base.css">
+<link rel="stylesheet" href="assets/css/components.css">
+<script>(function(){try{var t=localStorage.getItem('pl-theme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t);var q=/[?&]theme=(light|dark)\b/.exec(location.search);if(q)document.documentElement.setAttribute('data-theme',q[1])}catch(e){}document.documentElement.classList.add('js')})()</script>
+<script src="assets/js/site.js" defer></script>
 <style>
-  :root {
-    --ground: #f4f2ea;
-    --raise: #fbfaf5;
-    --ink: #1b1e24;
-    --ink-soft: #55606e;
-    --hair: #d9d5c7;
-    --hair-soft: #e7e3d7;
-    --home: #c4881a;
-    --draw: #6b7482;
-    --away: #1f8ea0;
-    --market: #7d5bbe;
-    --pitch: #3c8f4d;
-    --flash: #d9a908;
-    --plate: #12161d;
-    --plate-ink: #e8ebf2;
-    --plate-dim: #99a3b4;
-    --plate-hair: #2b313d;
-    --plate-arrow: #46b98f;
-    --plate-flash: #f2d64b;
-    --measure: 40rem;
-    --wide: 60rem;
-    color-scheme: light;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) {
-      --ground: #0f1216;
-      --raise: #161b21;
-      --ink: #e7eaf1;
-      --ink-soft: #9aa4b2;
-      --hair: #272d36;
-      --hair-soft: #1e242c;
-      --home: #e6b23f;
-      --draw: #8b93a3;
-      --away: #45b9cb;
-      --market: #b393e4;
-      --pitch: #57b56a;
-      --flash: #f0d552;
-      color-scheme: dark;
-    }
-  }
-  :root[data-theme="dark"] {
-    --ground: #0f1216;
-    --raise: #161b21;
-    --ink: #e7eaf1;
-    --ink-soft: #9aa4b2;
-    --hair: #272d36;
-    --hair-soft: #1e242c;
-    --home: #e6b23f;
-    --draw: #8b93a3;
-    --away: #45b9cb;
-    --market: #b393e4;
-    --pitch: #57b56a;
-    --flash: #f0d552;
-    color-scheme: dark;
-  }
-
-  * { box-sizing: border-box; }
-  body {
-    margin: 0;
-    background: var(--ground);
-    color: var(--ink);
-    font-family: "Newsreader", Georgia, serif;
-    font-size: 1.14rem;
-    line-height: 1.62;
-    -webkit-font-smoothing: antialiased;
-  }
-  .wrap { max-width: var(--wide); margin: 0 auto; padding: 0 1.5rem; }
-  .col { max-width: var(--measure); }
-
-  h1, h2, h3, .kicker, .stage-num, th, .lede-tag { font-family: "Bricolage Grotesque", "Helvetica Neue", sans-serif; }
-  h1 { font-size: clamp(2.3rem, 6vw, 3.7rem); line-height: 1.04; font-weight: 800; letter-spacing: -0.02em; text-wrap: balance; margin: 0 0 .5rem; }
-  h2 { font-size: clamp(1.5rem, 3.4vw, 2.1rem); font-weight: 700; letter-spacing: -0.015em; line-height: 1.12; text-wrap: balance; margin: 0; }
-  h3 { font-size: 1.12rem; font-weight: 700; letter-spacing: .01em; margin: 2rem 0 .3rem; }
-  p { margin: 0 0 1.1rem; }
-  a { color: var(--away); text-underline-offset: 3px; }
-  em { font-style: italic; }
-  .var { font-style: italic; font-family: "Newsreader", Georgia, serif; }
-  code, .mono { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: .86em; }
-  code { background: var(--hair-soft); padding: .08em .35em; border-radius: 4px; }
-
-  .kicker {
-    font-size: .82rem; font-weight: 700; letter-spacing: .16em; text-transform: uppercase;
-    color: var(--ink-soft); margin: 0 0 1.3rem;
-  }
-
-  header.hero { padding: clamp(3.5rem, 9vw, 6.5rem) 0 2.4rem; }
-  header.hero .col { max-width: 46rem; }
-  .sub { font-size: 1.3rem; color: var(--ink-soft); margin-top: .7rem; }
-  .byline { margin-top: 1.8rem; font-size: .95rem; color: var(--ink-soft); font-family: "JetBrains Mono", monospace; }
-  .triad-row { display: flex; gap: .5rem; margin-top: 2.2rem; flex-wrap: wrap; }
-  .triad-row span {
-    font-family: "JetBrains Mono", monospace; font-size: .8rem; letter-spacing: .04em;
-    padding: .3rem .7rem; border-radius: 999px; border: 1px solid var(--hair);
-  }
-  .t-h { color: var(--home); border-color: color-mix(in oklab, var(--home) 45%, var(--hair)); }
-  .t-d { color: var(--draw); border-color: color-mix(in oklab, var(--draw) 45%, var(--hair)); }
-  .t-a { color: var(--away); border-color: color-mix(in oklab, var(--away) 45%, var(--hair)); }
-  .t-m { color: var(--market); border-color: color-mix(in oklab, var(--market) 45%, var(--hair)); }
-
-  section.stage { padding: 2.6rem 0 1rem; border-top: 1px solid var(--hair); margin-top: 2.6rem; }
-  section.stage:first-of-type { border-top: none; margin-top: .4rem; padding-top: 1rem; }
-  .stage-head { display: flex; gap: 1rem; align-items: baseline; margin-bottom: 1rem; }
-  .stage-num {
-    font-size: 1rem; font-weight: 800; letter-spacing: .1em; color: var(--pitch);
-    border: 1.5px solid color-mix(in oklab, var(--pitch) 55%, var(--hair));
-    border-radius: 999px; padding: .12rem .7rem; flex: none; margin-top: .15rem;
-  }
-
-  figure { margin: 1.8rem 0 1.4rem; }
-  .plate {
-    background: var(--plate); border-radius: 14px; padding: 1.4rem 1.2rem 1rem;
-    border: 1px solid #26303d;
-    box-shadow: 0 12px 34px -18px rgba(0,0,0,.55);
-    overflow-x: auto;
-  }
-  .plate svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
-  figcaption {
-    font-size: .92rem; color: var(--ink-soft); margin-top: .8rem; max-width: var(--measure);
-  }
-  figcaption b { color: var(--ink); font-weight: 600; }
-
-  .pull {
-    font-family: "Bricolage Grotesque", sans-serif; font-weight: 600;
-    font-size: 1.28rem; line-height: 1.3; letter-spacing: -0.01em;
-    border-left: 3px solid var(--pitch); padding-left: 1rem; margin: 1.8rem 0;
-    color: var(--ink);
-  }
-
-  /* scoreboard */
-  .scoreboard { background: var(--plate); border-radius: 14px; padding: 1.6rem 1.4rem; margin: 1.6rem 0; }
-  .scoreboard h3 { color: var(--plate-ink); margin: 0 0 1rem; }
-  .sb-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1px; background: var(--plate-hair); border: 1px solid var(--plate-hair); border-radius: 10px; overflow: hidden; }
-  .sb-cell { background: var(--plate); padding: 1rem .95rem; }
-  .sb-cell .n { font-family: "JetBrains Mono", monospace; font-size: 1.6rem; font-weight: 600; color: var(--plate-ink); font-variant-numeric: tabular-nums; }
-  .sb-cell .n.good { color: var(--plate-arrow); }
-  .sb-cell .l { font-size: .78rem; color: var(--plate-dim); margin-top: .35rem; line-height: 1.35; }
-  .sb-note { color: var(--plate-dim); font-size: .9rem; margin: 1rem 0 0; }
-
-  table.mini { border-collapse: collapse; width: 100%; font-family: "JetBrains Mono", monospace; font-size: .82rem; margin: 1rem 0 1.4rem; }
-  table.mini th { text-align: right; font-weight: 600; color: var(--ink-soft); border-bottom: 1px solid var(--hair); padding: .4rem .6rem; }
-  table.mini td { text-align: right; padding: .4rem .6rem; border-bottom: 1px solid var(--hair-soft); font-variant-numeric: tabular-nums; }
-  table.mini td:first-child, table.mini th:first-child { text-align: left; }
-  .win { color: var(--pitch); font-weight: 600; }
-
-  footer { border-top: 1px solid var(--hair); margin-top: 4rem; padding: 2.4rem 0 4rem; color: var(--ink-soft); font-size: .95rem; }
-  footer .col { max-width: var(--measure); }
-
-  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
-
-  /* shared cross-page nav */
-  .sitenav { border-bottom: 1px solid var(--hair); }
-  .sitenav .wrap { display: flex; flex-wrap: wrap; gap: .3rem 1.4rem; align-items: baseline; padding-top: 1rem; padding-bottom: 1rem; }
-  .sitenav a { font-family: "JetBrains Mono", monospace; font-size: .78rem; letter-spacing: .02em; color: var(--ink-soft); text-decoration: none; }
-  .sitenav a:hover { color: var(--ink); }
-  .sitenav a[aria-current="page"] { color: var(--pitch); font-weight: 600; }
-  .sitenav .home { color: var(--ink); font-weight: 700; margin-right: .4rem; }
+  .keys { display: flex; flex-wrap: wrap; gap: var(--s-1); margin-top: var(--s-3); padding: 0; list-style: none; }
+  .keys li { margin: 0; max-width: none; display: inline-flex; align-items: center; min-height: 32px; padding: 0 12px; border-radius: var(--r-pill); border: 1px solid var(--line); font-size: var(--fs-xs); color: var(--ink-2); font-weight: 500; }
+  .feat-table td:not(:first-child), .feat-table th:not(:first-child) { font-family: var(--mono); font-size: var(--fs-xs); }
+  .feat-table td:last-child { font-weight: 600; }
+  .sb { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s-2); margin: var(--s-2) 0; }
+  @media (min-width: 768px) { .sb { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+  .sb-title { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--s-1) var(--s-2); margin-top: var(--s-4); }
+  .sb-title .muted { font-size: var(--fs-sm); }
 </style>
 </head>
 <body>
-
-<nav class="sitenav">
+<a class="skip" href="#main">Skip to content</a>
+<header class="site-nav">
   <div class="wrap">
-    <a class="home" href="index.html">PL outcome model</a>
-    <a href="how-it-works.html" aria-current="page">how it works</a>
-    <a href="pipeline.html">pipeline</a>
-    <a href="random-forest.html">random forest</a>
-    <a href="playground.html">playground</a>
-    <a href="predictions.html">predictions</a>
-  </div>
-</nav>
-
-<header class="hero">
-  <div class="wrap">
-    <div class="col">
-      <p class="kicker">Premier League outcome model · how it works</p>
-      <h1>Reading the match before kickoff</h1>
-      <p class="sub">Every number the model sees is knowable before the first whistle. Here is the
-        path from 25 seasons of results to three probabilities — <span class="var">P</span>(home),
-        <span class="var">P</span>(draw), <span class="var">P</span>(away) — drawn stage by stage.</p>
-      <div class="triad-row">
-        <span class="t-h">HOME&nbsp;·&nbsp;amber</span>
-        <span class="t-d">DRAW&nbsp;·&nbsp;slate</span>
-        <span class="t-a">AWAY&nbsp;·&nbsp;cyan</span>
-        <span class="t-m">MARKET&nbsp;·&nbsp;violet</span>
-      </div>
-      <p class="byline">9,074 matches · 78 pre-kickoff features · trained through 2022-23, tested on 2023-25, held out 2025-26</p>
-    </div>
+    <a class="wordmark" href="index.html">
+      <svg viewBox="0 0 64 64" aria-hidden="true" focusable="false"><rect class="mark-bg" width="64" height="64" rx="14"/><rect class="mark-fg" x="12" y="18" width="26" height="9" rx="3"/><rect class="mark-fg" x="41" y="18" width="11" height="9" rx="3" opacity="0.55"/><rect class="mark-fg" x="12" y="37" width="15" height="9" rx="3"/><rect class="mark-fg" x="30" y="37" width="22" height="9" rx="3" opacity="0.55"/></svg>
+      PL outcome model
+    </a>
+    <nav aria-label="Site">
+      <ul class="nav-links" id="nav-links">
+        <li><a href="index.html">Overview</a></li>
+        <li><a href="how-it-works.html" aria-current="page">How it works</a></li>
+        <li><a href="pipeline.html">Pipeline</a></li>
+        <li><a href="random-forest.html">Trees</a></li>
+        <li><a href="playground.html">Playground</a></li>
+        <li><a href="predictions.html">Predictions</a></li>
+        <li><a href="season.html">Season</a></li>
+        <li><a href="report.html">Report</a></li>
+      </ul>
+    </nav>
+    <button class="icon-btn nav-menu" type="button" data-nav-toggle aria-expanded="false" aria-controls="nav-links" aria-label="Menu">
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 7h16M4 12h16M4 17h16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+    </button>
+    <button class="icon-btn theme-toggle" type="button" data-theme-toggle data-state="system" aria-label="Theme: system. Switch to light.">
+      <svg class="i-system" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/></svg>
+      <svg class="i-light" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      <svg class="i-dark" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a7 7 0 1 0 10.5 10.5z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+    </button>
   </div>
 </header>
 
-<main class="wrap">
+<main id="main">
+  <section class="hero wrap">
+    <p class="eyebrow">How it works</p>
+    <h1>Reading the match before kickoff</h1>
+    <p class="lede">Every number the model sees is knowable before the first whistle. Here is the path from 25 seasons of results to three probabilities, <span class="var">P</span>(home), <span class="var">P</span>(draw), <span class="var">P</span>(away), drawn stage by stage.</p>
+    <ul class="keys" aria-label="Colour key">
+      <li><span class="swatch h"></span>Home</li>
+      <li><span class="swatch d"></span>Draw</li>
+      <li><span class="swatch a"></span>Away</li>
+    </ul>
+    <p class="byline"><span class="num" data-src="ui_meta.json#total_matches" data-fmt="int,">9,074</span> matches · <span class="num" data-src="ui_meta.json#n_features" data-fmt="int">78</span> pre-kickoff features · trained through 2022-23, tested on 2023-25, held out on 2025-26</p>
+  </section>
 
   <!-- STAGE 1 -->
-  <section class="stage" id="s1">
-    <div class="col">
-      <div class="stage-head"><span class="stage-num">01</span><h2>One row per match, every column a &ldquo;before&rdquo; number</h2></div>
-      <p>The dataset is one row per match. The target <span class="var">y</span> is the result —
-        <b style="color:var(--home)">H</b>, <b style="color:var(--draw)">D</b> or
-        <b style="color:var(--away)">A</b>. Every feature is a <em>difference</em>: the home team's
-        value minus the away team's, for things known the moment before kickoff — Elo gap, recent
-        form, expected-goals form, days of rest, league position, squad market value, and the
-        bookmaker's own price.</p>
-      <p>The one rule that governs the whole project: a feature for match <span class="var">k</span>
-        may only use matches <span class="var">1…k−1</span>. Every rolling average is shifted back
-        one game before it is computed, so a row never contains a trace of its own result.</p>
+  <section class="section wrap" id="s1" aria-labelledby="s1-h">
+    <div class="prose reveal">
+      <div class="section-head"><span class="section-num">01</span><h2 id="s1-h">One row per match, every column a "before" number</h2></div>
+      <p>The dataset is one row per match. The target <span class="var">y</span> is the result, <b>H</b>, <b>D</b> or <b>A</b>. Every feature is a <em>difference</em>: the home team's value minus the away team's, for things known the moment before kickoff: Elo gap, recent form, expected-goals form, days of rest, league position, squad market value, and the bookmaker's own price.</p>
+      <p>The one rule that governs the whole project: a feature for match <span class="var">k</span> may only use matches 1 … <span class="var">k</span>−1. Every rolling average is shifted back one game before it is computed, so a row never contains a trace of its own result.</p>
     </div>
-
-    <figure>
-      <div class="plate">
-        <svg viewBox="0 0 920 430" role="img" aria-label="Feature table: one row per match, columns of pre-kickoff difference features, target H/D/A; and an inset showing a team's last five games rolled forward.">
-          <defs>
-            <marker id="ar" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-              <path d="M0 0 L10 5 L0 10 z" fill="var(--plate-arrow)"/>
-            </marker>
-          </defs>
-          <text x="20" y="26" fill="var(--plate-dim)" font-family="JetBrains Mono, monospace" font-size="12">data/model_df.parquet — one row per match</text>
-
-          <!-- header -->
-          <g font-family="JetBrains Mono, monospace" font-size="12.5" fill="var(--plate-ink)">
-            <text x="34" y="58" fill="var(--plate-dim)">match</text>
-            <text x="150" y="58">elo_diff</text>
-            <text x="255" y="58">xgd_ewm_diff</text>
-            <text x="390" y="58">pts_ewm_diff</text>
-            <text x="520" y="58">rest_diff</text>
-            <text x="620" y="58">mkt_p_H</text>
-            <text x="725" y="58">rank_diff</text>
-            <text x="838" y="58" fill="var(--plate-flash)">y</text>
-          </g>
-          <line x1="20" y1="66" x2="900" y2="66" stroke="var(--plate-hair)"/>
-
-          <!-- rows -->
-          <g font-family="JetBrains Mono, monospace" font-size="12.5">
-            <!-- row template repeated with tints -->
-            <g transform="translate(0,74)">
-              <rect x="20" y="0" width="880" height="30" fill="var(--home)" opacity="0.13"/>
-              <text x="34" y="20" fill="var(--plate-dim)">MCI–BHA</text>
-              <text x="150" y="20" fill="var(--plate-ink)">+182</text>
-              <text x="255" y="20" fill="var(--plate-ink)">+1.42</text>
-              <text x="390" y="20" fill="var(--plate-ink)">+0.90</text>
-              <text x="520" y="20" fill="var(--plate-ink)">+1</text>
-              <text x="620" y="20" fill="var(--plate-ink)">0.71</text>
-              <text x="725" y="20" fill="var(--plate-ink)">−9</text>
-              <text x="835" y="20" fill="var(--home)" font-weight="600">H</text>
-            </g>
-            <g transform="translate(0,106)">
-              <rect x="20" y="0" width="880" height="30" fill="var(--draw)" opacity="0.16"/>
-              <text x="34" y="20" fill="var(--plate-dim)">EVE–FUL</text>
-              <text x="150" y="20" fill="var(--plate-ink)">+21</text>
-              <text x="255" y="20" fill="var(--plate-ink)">−0.08</text>
-              <text x="390" y="20" fill="var(--plate-ink)">+0.10</text>
-              <text x="520" y="20" fill="var(--plate-ink)">0</text>
-              <text x="620" y="20" fill="var(--plate-ink)">0.42</text>
-              <text x="725" y="20" fill="var(--plate-ink)">−2</text>
-              <text x="835" y="20" fill="var(--draw)" font-weight="600">D</text>
-            </g>
-            <g transform="translate(0,138)">
-              <rect x="20" y="0" width="880" height="30" fill="var(--away)" opacity="0.14"/>
-              <text x="34" y="20" fill="var(--plate-dim)">LUT–ARS</text>
-              <text x="150" y="20" fill="var(--plate-ink)">−214</text>
-              <text x="255" y="20" fill="var(--plate-ink)">−1.61</text>
-              <text x="390" y="20" fill="var(--plate-ink)">−1.20</text>
-              <text x="520" y="20" fill="var(--plate-ink)">−1</text>
-              <text x="620" y="20" fill="var(--plate-ink)">0.12</text>
-              <text x="725" y="20" fill="var(--plate-ink)">+13</text>
-              <text x="835" y="20" fill="var(--away)" font-weight="600">A</text>
-            </g>
-            <g transform="translate(0,170)">
-              <rect x="20" y="0" width="880" height="30" fill="var(--home)" opacity="0.10"/>
-              <text x="34" y="20" fill="var(--plate-dim)">NEW–WHU</text>
-              <text x="150" y="20" fill="var(--plate-ink)">+57</text>
-              <text x="255" y="20" fill="var(--plate-ink)">+0.33</text>
-              <text x="390" y="20" fill="var(--plate-ink)">−0.20</text>
-              <text x="520" y="20" fill="var(--plate-ink)">+2</text>
-              <text x="620" y="20" fill="var(--plate-ink)">0.55</text>
-              <text x="725" y="20" fill="var(--plate-ink)">−4</text>
-              <text x="835" y="20" fill="var(--home)" font-weight="600">H</text>
-            </g>
-          </g>
-          <text x="20" y="228" fill="var(--plate-dim)" font-family="JetBrains Mono, monospace" font-size="11">… 9,070 more</text>
-
-          <!-- inset: rolling / ewm -->
-          <line x1="20" y1="252" x2="900" y2="252" stroke="var(--plate-hair)"/>
-          <text x="20" y="278" fill="var(--plate-dim)" font-family="JetBrains Mono, monospace" font-size="12">where a &ldquo;form&rdquo; number comes from — a team's last five, shifted back one</text>
-
-          <g transform="translate(20,296)" font-family="JetBrains Mono, monospace" font-size="12">
-            <!-- five game chips -->
-            <g fill="var(--plate-ink)">
-              <rect x="0" y="0" width="70" height="34" rx="4" fill="none" stroke="var(--plate-hair)"/>
-              <text x="12" y="15" fill="var(--plate-dim)" font-size="10">g-5</text><text x="12" y="29">W · 3</text>
-              <rect x="82" y="0" width="70" height="34" rx="4" fill="none" stroke="var(--plate-hair)"/>
-              <text x="94" y="15" fill="var(--plate-dim)" font-size="10">g-4</text><text x="94" y="29">D · 1</text>
-              <rect x="164" y="0" width="70" height="34" rx="4" fill="none" stroke="var(--plate-hair)"/>
-              <text x="176" y="15" fill="var(--plate-dim)" font-size="10">g-3</text><text x="176" y="29">L · 0</text>
-              <rect x="246" y="0" width="70" height="34" rx="4" fill="none" stroke="var(--plate-hair)"/>
-              <text x="258" y="15" fill="var(--plate-dim)" font-size="10">g-2</text><text x="258" y="29">W · 3</text>
-              <rect x="328" y="0" width="70" height="34" rx="4" fill="none" stroke="var(--plate-hair)"/>
-              <text x="340" y="15" fill="var(--plate-dim)" font-size="10">g-1</text><text x="340" y="29">W · 3</text>
-            </g>
-            <path d="M410 17 L470 17" stroke="var(--plate-arrow)" stroke-width="1.5" marker-end="url(#ar)"/>
-            <text x="486" y="8" fill="var(--plate-dim)" font-size="10">flat mean of 5</text>
-            <text x="486" y="22" fill="var(--plate-ink)">pts_roll5 = 2.00</text>
-            <text x="486" y="40" fill="var(--plate-dim)" font-size="10">exponential — recent games weigh more</text>
-            <text x="486" y="54" fill="var(--plate-flash)">pts_ewm&nbsp;&nbsp;= 2.31</text>
-          </g>
-        </svg>
+    <figure class="figure reveal">
+      <div class="scroll-x">
+        <table class="feat-table">
+          <caption>Four real rows from the 2025-26 holdout (matchday 3), a handful of the 78 columns</caption>
+          <thead><tr><th>Match</th><th>home Elo</th><th>away Elo</th><th>market P(H)</th><th>market P(D)</th><th>market P(A)</th><th>y</th></tr></thead>
+          <tbody>
+            <tr><td>Brentford v Chelsea</td><td data-src="ui_predictions.json#[id=9531].elo.home" data-fmt="int">1516</td><td data-src="ui_predictions.json#[id=9531].elo.away" data-fmt="int">1606</td><td data-src="ui_predictions.json#[id=9531].market.H" data-fmt="3">0.209</td><td data-src="ui_predictions.json#[id=9531].market.D" data-fmt="3">0.242</td><td data-src="ui_predictions.json#[id=9531].market.A" data-fmt="3">0.549</td><td>D</td></tr>
+            <tr><td>Arsenal v Nott'm Forest</td><td data-src="ui_predictions.json#[id=9532].elo.home" data-fmt="int">1655</td><td data-src="ui_predictions.json#[id=9532].elo.away" data-fmt="int">1522</td><td data-src="ui_predictions.json#[id=9532].market.H" data-fmt="3">0.688</td><td data-src="ui_predictions.json#[id=9532].market.D" data-fmt="3">0.196</td><td data-src="ui_predictions.json#[id=9532].market.A" data-fmt="3">0.116</td><td>H</td></tr>
+            <tr><td>Bournemouth v Brighton</td><td data-src="ui_predictions.json#[id=9533].elo.home" data-fmt="int">1542</td><td data-src="ui_predictions.json#[id=9533].elo.away" data-fmt="int">1542</td><td data-src="ui_predictions.json#[id=9533].market.H" data-fmt="3">0.399</td><td data-src="ui_predictions.json#[id=9533].market.D" data-fmt="3">0.271</td><td data-src="ui_predictions.json#[id=9533].market.A" data-fmt="3">0.331</td><td>H</td></tr>
+            <tr><td>Everton v Aston Villa</td><td data-src="ui_predictions.json#[id=9535].elo.home" data-fmt="int">1531</td><td data-src="ui_predictions.json#[id=9535].elo.away" data-fmt="int">1539</td><td data-src="ui_predictions.json#[id=9535].market.H" data-fmt="3">0.389</td><td data-src="ui_predictions.json#[id=9535].market.D" data-fmt="3">0.290</td><td data-src="ui_predictions.json#[id=9535].market.A" data-fmt="3">0.321</td><td>D</td></tr>
+          </tbody>
+        </table>
       </div>
-      <figcaption><b>The table the models train on.</b> Rows tinted by result. Columns are a handful
-        of the 78 <code>*_diff</code> features; <span class="var">y</span> is the label. The inset shows
-        why there are two &ldquo;form&rdquo; flavours — a flat 5-game average has a cliff when game
-        <span class="var">k−5</span> drops out; the exponentially-weighted version decays smoothly.</figcaption>
+      <figcaption><span class="fig-label">Figure 1</span><b>The table the models train on.</b> The Elo columns become one <code>elo_diff</code> feature; the market columns are the de-vigged consensus price. The other feature families, all shifted back one match, are two flavours of form (a flat five-game mean and an exponentially weighted one that decays smoothly instead of dropping game <span class="var">k</span>−5 off a cliff), season-to-date rates, expected goals, rest and congestion, head-to-head, league table position, and pre-season squad value.</figcaption>
     </figure>
   </section>
 
   <!-- STAGE 2 -->
-  <section class="stage" id="s2">
-    <div class="col">
-      <div class="stage-head"><span class="stage-num">02</span><h2>Start from the market, not from zero</h2></div>
-      <p>A bookmaker's price is the strongest single forecast in existence — it folds in every model,
-        every team-sheet leak and every bet. So the model doesn't start from a blank slate; it starts
-        from the market and only tries to improve on it.</p>
-      <p>Raw odds don't quite work as probabilities: <span class="mono">1/odds</span> across the three
-        results sums to about <b>1.05</b>, not 1 — the &ldquo;overround&rdquo;, the bookmaker's margin.
-        Divide it out and you have vig-free probabilities. Take their logs and you have the
-        <b>base margin</b> — the number the trees begin from.</p>
+  <section class="section wrap" id="s2" aria-labelledby="s2-h">
+    <div class="prose reveal">
+      <div class="section-head"><span class="section-num">02</span><h2 id="s2-h">Start from the market, not from zero</h2></div>
+      <p>A bookmaker's price is the strongest single forecast in existence: it folds in every model, every team-sheet leak and every bet. So the model does not start from a blank slate; it starts from the market and only tries to improve on it.</p>
+      <p>Raw odds do not quite work as probabilities: <code>1/odds</code> across the three results sums to a little over 1, the "overround", the bookmaker's margin. Divide it out and you have vig-free probabilities. Take their logs and you have the <b>base margin</b>, the number the trees begin from.</p>
     </div>
-
-    <figure>
-      <div class="plate">
-        <svg viewBox="0 0 920 300" role="img" aria-label="Odds transformed to vig-free probabilities to log-odds base margin.">
-          <defs>
-            <marker id="ar2" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
-              <path d="M0 0 L10 5 L0 10 z" fill="var(--plate-arrow)"/>
-            </marker>
-          </defs>
-
-          <!-- col 1: odds -->
-          <text x="30" y="40" fill="var(--plate-dim)" font-family="JetBrains Mono, monospace" font-size="12">bookmaker odds</text>
-          <g font-family="JetBrains Mono, monospace" font-size="14" fill="var(--plate-ink)">
-            <text x="30" y="86">H&nbsp;&nbsp;1.53</text>
-            <text x="30" y="120">D&nbsp;&nbsp;4.30</text>
-            <text x="30" y="154">A&nbsp;&nbsp;6.50</text>
+    <figure class="figure reveal">
+      <div class="scroll-x">
+        <svg class="dia" viewBox="0 0 920 290" width="920" height="290" style="min-width:640px" role="img" aria-labelledby="s2-t" aria-describedby="s2-d">
+          <title id="s2-t">Odds to vig-free probabilities to log-odds base margin</title>
+          <desc id="s2-d">Worked example. Decimal odds 1.53, 4.30 and 6.50 invert to 0.654, 0.233 and 0.154, which sum to 1.040. Dividing by the sum gives 0.628, 0.224 and 0.148. Their logs, minus 0.464, minus 1.498 and minus 1.911, are the base margin.</desc>
+          <defs><marker id="ar2" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="var(--accent)"/></marker></defs>
+          <text x="30" y="40" class="dim mono">bookmaker odds (worked example)</text>
+          <g class="mono" font-size="15">
+            <text x="30" y="86">H   1.53</text><text x="30" y="120">D   4.30</text><text x="30" y="154">A   6.50</text>
           </g>
-          <text x="30" y="196" fill="var(--plate-dim)" font-family="JetBrains Mono, monospace" font-size="11">1/odds → 0.654 + 0.233 + 0.154</text>
-          <text x="30" y="214" fill="var(--plate-flash)" font-family="JetBrains Mono, monospace" font-size="12">Σ = 1.041&nbsp;&nbsp;(overround 4.1%)</text>
-
-          <path d="M210 118 L286 118" stroke="var(--plate-arrow)" stroke-width="1.6" marker-end="url(#ar2)"/>
-          <text x="214" y="108" fill="var(--plate-dim)" font-family="JetBrains Mono, monospace" font-size="10">÷ Σ</text>
-
-          <!-- col 2: vig-free bars -->
-          <text x="310" y="40" fill="var(--plate-dim)" font-family="JetBrains Mono, monospace" font-size="12">vig-free probability</text>
-          <g font-family="JetBrains Mono, monospace" font-size="12" fill="var(--plate-ink)">
-            <rect x="310" y="66" width="240" height="22" fill="var(--home)" opacity="0.9"/>
-            <text x="558" y="82">0.628&nbsp;&nbsp;H</text>
-            <rect x="310" y="104" width="85" height="22" fill="var(--draw)" opacity="0.9"/>
-            <text x="403" y="120">0.224&nbsp;&nbsp;D</text>
-            <rect x="310" y="142" width="57" height="22" fill="var(--away)" opacity="0.9"/>
-            <text x="375" y="158">0.148&nbsp;&nbsp;A</text>
+          <text x="30" y="196" class="dim mono">1/odds → 0.654 + 0.233 + 0.154</text>
+          <text x="30" y="216" class="acc mono b">Σ = 1.040  (overround 4.0%)</text>
+          <path d="M210 118 L286 118" stroke="var(--accent)" stroke-width="1.6" marker-end="url(#ar2)"/>
+          <text x="226" y="108" class="dim mono">÷ Σ</text>
+          <text x="310" y="40" class="dim mono">vig-free probability</text>
+          <g class="mono">
+            <rect x="310" y="66" width="240" height="22" rx="4" class="seg-h"/><text x="558" y="82">0.628  H</text>
+            <rect x="310" y="104" width="86" height="22" rx="4" class="seg-d"/><text x="404" y="120">0.224  D</text>
+            <rect x="310" y="142" width="57" height="22" rx="4" class="seg-a"/><text x="375" y="158">0.148  A</text>
           </g>
-
-          <path d="M600 118 L676 118" stroke="var(--plate-arrow)" stroke-width="1.6" marker-end="url(#ar2)"/>
-          <text x="604" y="108" fill="var(--plate-dim)" font-family="JetBrains Mono, monospace" font-size="10">log</text>
-
-          <!-- col 3: base margin -->
-          <text x="700" y="40" fill="var(--plate-dim)" font-family="JetBrains Mono, monospace" font-size="12">base margin</text>
-          <g font-family="JetBrains Mono, monospace" font-size="14" fill="var(--plate-ink)">
-            <text x="700" y="86">−0.465</text>
-            <text x="700" y="120">−1.496</text>
-            <text x="700" y="154">−1.911</text>
+          <path d="M600 118 L676 118" stroke="var(--accent)" stroke-width="1.6" marker-end="url(#ar2)"/>
+          <text x="622" y="108" class="dim mono">log</text>
+          <text x="700" y="40" class="dim mono">base margin</text>
+          <g class="mono" font-size="15">
+            <text x="700" y="86">−0.464</text><text x="700" y="120">−1.498</text><text x="700" y="154">−1.911</text>
           </g>
-          <text x="700" y="200" fill="var(--plate-dim)" font-family="JetBrains Mono, monospace" font-size="11" width="180">the trees add to this,</text>
-          <text x="700" y="216" fill="var(--plate-dim)" font-family="JetBrains Mono, monospace" font-size="11">then softmax → P</text>
-
-          <text x="30" y="268" fill="var(--plate-dim)" font-family="Newsreader, serif" font-size="13" font-style="italic">Where no odds exist (2000–02, ~8% of matches) the base margin is just log(1/3) — a flat prior.</text>
+          <text x="700" y="200" class="dim">the trees add to this,</text>
+          <text x="700" y="218" class="dim">then a softmax gives P</text>
+          <text x="30" y="266" class="dim">Where no odds exist (2000–02, about 8% of matches) the base margin is log(1/3), a flat prior.</text>
         </svg>
       </div>
-      <figcaption><b>The market becomes the model's prior.</b> Everything downstream is expressed as a
-        correction to this — <span class="var">final log-odds = base margin + Σ tree outputs</span>.</figcaption>
+      <figcaption><span class="fig-label">Figure 2</span><b>The market becomes the model's prior.</b> Everything downstream is expressed as a correction to this: <span class="var">final log-odds = base margin + Σ tree outputs</span>. The odds in the figure are a worked example, not a specific fixture.</figcaption>
     </figure>
   </section>
 
   <!-- STAGE 3 -->
-  <section class="stage" id="s3">
-    <div class="col">
-      <div class="stage-head"><span class="stage-num">03</span><h2>Model A — boosted trees learn what the market misses</h2></div>
-      <p>A <a href="random-forest.html">random forest</a> builds hundreds of trees <em>in parallel</em>
-        on bootstrap samples and takes a vote. Gradient boosting is the other idea: a <em>chain</em> of small trees,
-        each one fitting the error the chain still has. Tree&nbsp;1 nudges the market prior; tree&nbsp;2
-        corrects what tree&nbsp;1 left wrong; and so on for a few hundred rounds, each nudge tiny
-        (<span class="mono">learning rate 0.03</span>).</p>
-      <p>Each tree is shallow — four questions deep — splitting on things like
-        <span class="mono">elo_diff&nbsp;≤&nbsp;38</span> or
-        <span class="mono">xgd_ewm_diff&nbsp;≤&nbsp;−0.4</span>. The leaves aren&rsquo;t classes; they&rsquo;re
-        small additions to the running log-odds. Add the market prior, add every tree, push through a
-        softmax, and three probabilities come out.</p>
+  <section class="section wrap" id="s3" aria-labelledby="s3-h">
+    <div class="prose reveal">
+      <div class="section-head"><span class="section-num">03</span><h2 id="s3-h">Model A: boosted trees learn what the market misses</h2></div>
+      <p>A <a href="random-forest.html">random forest</a> builds hundreds of trees in parallel on bootstrap samples and takes a vote. Gradient boosting is the other idea: a <em>chain</em> of small trees, each one fitting the error the chain still has. Tree 1 nudges the market prior; tree 2 corrects what tree 1 left wrong; and so on for a few hundred rounds, each nudge tiny (learning rate <span class="num" data-src="config.json#clf_params.eta" data-fmt="2">0.03</span>).</p>
+      <p>Each tree is shallow, <span data-src="config.json#clf_params.max_depth" data-fmt="int">3</span> questions deep, splitting on things like <code>elo_diff ≤ 38</code> or <code>xgd_ewm_diff ≤ −0.4</code>. The leaves are not classes; they are small additions to the running log-odds. Add the market prior, add every tree, push through a softmax, and three probabilities come out.</p>
     </div>
-
-    <figure>
-      <div class="plate">
-        <svg viewBox="0 0 920 420" role="img" aria-label="Boosting: market prior plus a chain of shallow trees, each with threshold splits and leaf nudges, accumulated and softmaxed into H/D/A probabilities.">
-          <defs>
-            <marker id="ar3" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-              <path d="M0 0 L10 5 L0 10 z" fill="var(--plate-arrow)"/>
-            </marker>
-          </defs>
-
-          <!-- prior -->
-          <text x="20" y="30" fill="var(--plate-dim)" font-family="JetBrains Mono, monospace" font-size="12">market prior</text>
-          <g font-family="JetBrains Mono, monospace" font-size="11.5" fill="var(--plate-ink)">
-            <text x="20" y="70">H −0.47</text><text x="20" y="88">D −1.50</text><text x="20" y="106">A −1.91</text>
+    <figure class="figure reveal">
+      <div class="scroll-x">
+        <svg class="dia" viewBox="0 0 920 330" width="920" height="330" style="min-width:640px" role="img" aria-labelledby="s3-t" aria-describedby="s3-d">
+          <title id="s3-t">Boosting: a market prior plus a chain of shallow trees</title>
+          <desc id="s3-d">Schematic. The base margin for H, D and A enters on the left. Three example trees each ask one threshold question and emit small leaf nudges. The nudges accumulate onto the base margin, and a softmax turns the totals into probabilities of 0.66, 0.20 and 0.14. Leaf values are illustrative.</desc>
+          <defs><marker id="ar3" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="var(--accent)"/></marker></defs>
+          <text x="20" y="30" class="dim mono">market prior</text>
+          <g class="mono"><text x="20" y="70">H −0.46</text><text x="20" y="88">D −1.50</text><text x="20" y="106">A −1.91</text></g>
+          <path d="M96 84 L150 84" stroke="var(--accent)" stroke-width="1.4" marker-end="url(#ar3)"/>
+          <g text-anchor="middle">
+            <text x="205" y="30" class="dim mono">tree 1</text>
+            <circle cx="205" cy="60" r="20" class="stroke-acc" stroke-width="1.5"/><text x="205" y="64" class="mono" font-size="10">elo≤38</text>
+            <line x1="192" y1="75" x2="170" y2="104" stroke="var(--accent)"/><line x1="218" y1="75" x2="240" y2="104" stroke="var(--accent)"/>
+            <circle cx="168" cy="118" r="15" class="fill-soft" stroke="var(--accent)"/><text x="168" y="122" class="mono" font-size="10">−.04</text>
+            <circle cx="242" cy="118" r="15" class="fill-soft" stroke="var(--accent)"/><text x="242" y="122" class="mono" font-size="10">+.06</text>
+            <text x="360" y="30" class="dim mono">tree 2</text>
+            <circle cx="360" cy="60" r="20" class="stroke-acc" stroke-width="1.5"/><text x="360" y="64" class="mono" font-size="10">xgd≤−.4</text>
+            <line x1="347" y1="75" x2="325" y2="104" stroke="var(--accent)"/><line x1="373" y1="75" x2="395" y2="104" stroke="var(--accent)"/>
+            <circle cx="323" cy="118" r="15" class="fill-soft" stroke="var(--accent)"/><text x="323" y="122" class="mono" font-size="10">+.03</text>
+            <circle cx="397" cy="118" r="15" class="fill-soft" stroke="var(--accent)"/><text x="397" y="122" class="mono" font-size="10">−.05</text>
+            <text x="470" y="92" class="dim mono" font-size="20">···</text>
+            <text x="560" y="30" class="dim mono">tree K</text>
+            <circle cx="560" cy="60" r="20" class="stroke-acc" stroke-width="1.5"/><text x="560" y="64" class="mono" font-size="10">rest≤−1</text>
+            <line x1="547" y1="75" x2="525" y2="104" stroke="var(--accent)"/><line x1="573" y1="75" x2="595" y2="104" stroke="var(--accent)"/>
+            <circle cx="523" cy="118" r="15" class="fill-soft" stroke="var(--accent)"/><text x="523" y="122" class="mono" font-size="10">−.02</text>
+            <circle cx="597" cy="118" r="15" class="fill-soft" stroke="var(--accent)"/><text x="597" y="122" class="mono" font-size="10">+.01</text>
           </g>
-          <path d="M92 84 L150 84" stroke="var(--plate-arrow)" stroke-width="1.4" marker-end="url(#ar3)"/>
-
-          <!-- three trees -->
-          <g font-family="Newsreader, serif" font-size="12" font-style="italic" fill="var(--plate-ink)" text-anchor="middle">
-            <!-- tree 1 -->
-            <text x="205" y="30" fill="var(--plate-dim)" font-family="JetBrains Mono, monospace" font-style="normal" font-size="11">tree 1</text>
-            <circle cx="205" cy="60" r="19" fill="none" stroke="var(--plate-arrow)" stroke-width="1.5"/>
-            <text x="205" y="64" font-size="10">elo≤38</text>
-            <line x1="192" y1="74" x2="170" y2="104" stroke="var(--plate-arrow)"/>
-            <line x1="218" y1="74" x2="240" y2="104" stroke="var(--plate-arrow)"/>
-            <circle cx="168" cy="118" r="15" fill="var(--market)" fill-opacity="0.22" stroke="var(--market)"/>
-            <text x="168" y="122" font-style="normal" font-family="JetBrains Mono, monospace" font-size="10">−.04</text>
-            <circle cx="242" cy="118" r="15" fill="var(--market)" fill-opacity="0.22" stroke="var(--market)"/>
-            <text x="242" y="122" font-style="normal" font-family="JetBrains Mono, monospace" font-size="10">+.06</text>
-
-            <!-- tree 2 -->
-            <text x="360" y="30" fill="var(--plate-dim)" font-family="JetBrains Mono, monospace" font-style="normal" font-size="11">tree 2</text>
-            <circle cx="360" cy="60" r="19" fill="none" stroke="var(--plate-arrow)" stroke-width="1.5"/>
-            <text x="360" y="64" font-size="9">xgd≤−.4</text>
-            <line x1="347" y1="74" x2="325" y2="104" stroke="var(--plate-arrow)"/>
-            <line x1="373" y1="74" x2="395" y2="104" stroke="var(--plate-arrow)"/>
-            <circle cx="323" cy="118" r="15" fill="var(--market)" fill-opacity="0.22" stroke="var(--market)"/>
-            <text x="323" y="122" font-style="normal" font-family="JetBrains Mono, monospace" font-size="10">+.03</text>
-            <circle cx="397" cy="118" r="15" fill="var(--market)" fill-opacity="0.22" stroke="var(--market)"/>
-            <text x="397" y="122" font-style="normal" font-family="JetBrains Mono, monospace" font-size="10">−.05</text>
-
-            <text x="470" y="92" fill="var(--plate-dim)" font-family="JetBrains Mono, monospace" font-style="normal" font-size="20">···</text>
-
-            <!-- tree K -->
-            <text x="560" y="30" fill="var(--plate-dim)" font-family="JetBrains Mono, monospace" font-style="normal" font-size="11">tree K</text>
-            <circle cx="560" cy="60" r="19" fill="none" stroke="var(--plate-arrow)" stroke-width="1.5"/>
-            <text x="560" y="64" font-size="9">rest≤−1</text>
-            <line x1="547" y1="74" x2="525" y2="104" stroke="var(--plate-arrow)"/>
-            <line x1="573" y1="74" x2="595" y2="104" stroke="var(--plate-arrow)"/>
-            <circle cx="523" cy="118" r="15" fill="var(--market)" fill-opacity="0.22" stroke="var(--market)"/>
-            <text x="523" y="122" font-style="normal" font-family="JetBrains Mono, monospace" font-size="10">−.02</text>
-            <circle cx="597" cy="118" r="15" fill="var(--market)" fill-opacity="0.22" stroke="var(--market)"/>
-            <text x="597" y="122" font-style="normal" font-family="JetBrains Mono, monospace" font-size="10">+.01</text>
+          <line x1="20" y1="160" x2="660" y2="160" stroke="var(--line)"/>
+          <text x="20" y="186" class="dim mono">accumulate:  base margin + Σ leaf nudges</text>
+          <g class="mono"><text x="20" y="220">H  −0.46 + 0.19 → −0.27</text><text x="20" y="240">D  −1.50 − 0.02 → −1.52</text><text x="20" y="260">A  −1.91 − 0.24 → −2.15</text></g>
+          <path d="M330 240 L400 240" stroke="var(--accent)" stroke-width="1.6" marker-end="url(#ar3)"/>
+          <text x="340" y="230" class="dim mono">softmax</text>
+          <g class="mono">
+            <rect x="420" y="202" width="220" height="20" rx="4" class="seg-h"/><text x="648" y="217">0.66 H</text>
+            <rect x="420" y="230" width="66" height="20" rx="4" class="seg-d"/><text x="494" y="245">0.20 D</text>
+            <rect x="420" y="258" width="47" height="20" rx="4" class="seg-a"/><text x="475" y="273">0.14 A</text>
           </g>
-
-          <!-- accumulator -->
-          <line x1="20" y1="170" x2="660" y2="170" stroke="var(--plate-hair)"/>
-          <text x="20" y="196" fill="var(--plate-dim)" font-family="JetBrains Mono, monospace" font-size="12">accumulate:&nbsp;&nbsp;base margin&nbsp;&nbsp;+&nbsp;&nbsp;Σ leaf nudges</text>
-          <g font-family="JetBrains Mono, monospace" font-size="12" fill="var(--plate-ink)">
-            <text x="20" y="230">H&nbsp;&nbsp;−0.47 + 0.19&nbsp;→&nbsp;−0.28</text>
-            <text x="20" y="250">D&nbsp;&nbsp;−1.50 − 0.02&nbsp;→&nbsp;−1.52</text>
-            <text x="20" y="270">A&nbsp;&nbsp;−1.91 − 0.24&nbsp;→&nbsp;−2.15</text>
-          </g>
-          <path d="M330 250 L400 250" stroke="var(--plate-arrow)" stroke-width="1.6" marker-end="url(#ar3)"/>
-          <text x="336" y="240" fill="var(--plate-dim)" font-family="JetBrains Mono, monospace" font-size="10">softmax</text>
-
-          <!-- output bars -->
-          <g font-family="JetBrains Mono, monospace" font-size="12">
-            <rect x="420" y="212" width="220" height="20" fill="var(--home)"/>
-            <text x="648" y="227" fill="var(--plate-ink)">0.66 H</text>
-            <rect x="420" y="240" width="66" height="20" fill="var(--draw)"/>
-            <text x="494" y="255" fill="var(--plate-ink)">0.20 D</text>
-            <rect x="420" y="268" width="47" height="20" fill="var(--away)"/>
-            <text x="475" y="283" fill="var(--plate-ink)">0.14 A</text>
-          </g>
-
-          <text x="20" y="332" fill="var(--plate-flash)" font-family="Newsreader, serif" font-style="italic" font-size="13">No class weights.</text>
-          <text x="112" y="332" fill="var(--plate-dim)" font-family="Newsreader, serif" font-size="13">The earlier model forced the draw probability up with</text>
-          <text x="20" y="352" fill="var(--plate-dim)" font-family="Newsreader, serif" font-size="13">inverse-frequency weights; it predicted draws it didn&rsquo;t believe and the log loss collapsed.</text>
-          <text x="20" y="372" fill="var(--plate-dim)" font-family="Newsreader, serif" font-size="13">Honest probabilities first — the draw question is handled two ways below.</text>
+          <text x="20" y="310" class="dim">Schematic: thresholds and leaf values are illustrative. No class weights: an earlier version forced draws up with inverse-frequency weights, and the log loss got worse.</text>
         </svg>
       </div>
-      <figcaption><b>Boosting is sequential, not a vote.</b> Each tree is small and its leaves are
-        adjustments, not verdicts. The market prior plus every adjustment, softmaxed, is Model&nbsp;A.</figcaption>
+      <figcaption><span class="fig-label">Figure 3</span><b>Boosting is sequential, not a vote.</b> Each tree is small and its leaves are adjustments, not verdicts. The market prior plus every adjustment, softmaxed, is Model A. Honest probabilities come first; the draw question is handled two ways below.</figcaption>
     </figure>
   </section>
 
   <!-- STAGE 4 -->
-  <section class="stage" id="s4">
-    <div class="col">
-      <div class="stage-head"><span class="stage-num">04</span><h2>Model B — a draw is what low scores look like</h2></div>
-      <p>A draw isn&rsquo;t a tactic a team picks; it&rsquo;s what happens when two low goal
-        expectations meet — 0-0, 1-1, 2-2. Asking a flat classifier to carve that region out of
-        overlapping distributions is hard. So Model&nbsp;B models the goals instead.</p>
-      <p>Two Poisson regressors predict <span class="var">λ</span> = expected home goals and
-        <span class="var">μ</span> = expected away goals, each starting from the market&rsquo;s
-        implied expected goals. From those, a whole scoreline matrix:
-        <span class="var">P(i, j) = Poisson(i; λ) · Poisson(j; μ) · τ(i, j)</span>. The
-        <b style="color:var(--flash)">Dixon&ndash;Coles τ</b> nudges the four lowest scores, where
-        independent Poisson is known to be wrong. Sum the triangles and you have H, D and A — the
-        draw falls out of the arithmetic.</p>
+  <section class="section wrap" id="s4" aria-labelledby="s4-h">
+    <div class="prose reveal">
+      <div class="section-head"><span class="section-num">04</span><h2 id="s4-h">Model B: a draw is what low scores look like</h2></div>
+      <p>A draw is not a tactic a team picks; it is what happens when two low goal expectations meet: 0–0, 1–1, 2–2. Asking a flat classifier to carve that region out of overlapping distributions is hard. So Model B models the goals instead.</p>
+      <p>Two Poisson regressors predict <span class="var">λ</span> = expected home goals and <span class="var">μ</span> = expected away goals, each starting from the market's implied expected goals. From those, a whole scoreline matrix: <span class="var">P(i, j) = Poisson(i; λ) · Poisson(j; μ) · τ(i, j)</span>. The <b>Dixon–Coles τ</b> nudges the four lowest scores, where independent Poisson is known to be wrong. Sum the triangles and you have H, D and A: the draw falls out of the arithmetic.</p>
     </div>
-
-    <figure>
-      <div class="plate">
-        <svg viewBox="0 0 920 440" role="img" aria-label="Dixon-Coles scoreline matrix: home goals by away goals, each cell a probability, low-score cells tau-corrected; lower triangle sums to P(home), diagonal to P(draw), upper to P(away).">
-          <defs>
-            <marker id="ar4" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-              <path d="M0 0 L10 5 L0 10 z" fill="var(--plate-arrow)"/>
-            </marker>
-          </defs>
-          <text x="20" y="28" fill="var(--plate-ink)" font-family="JetBrains Mono, monospace" font-size="13">λ = E[home goals] = 1.74&nbsp;&nbsp;&nbsp;&nbsp;μ = E[away goals] = 0.92</text>
-
-          <!-- matrix -->
-          <g font-family="JetBrains Mono, monospace" font-size="11" transform="translate(70,60)">
-            <text x="150" y="-24" fill="var(--plate-dim)" text-anchor="middle" font-size="11">away goals →</text>
-            <text x="-46" y="150" fill="var(--plate-dim)" text-anchor="middle" font-size="11" transform="rotate(-90,-46,150)">home goals →</text>
-            <!-- column headers -->
-            <g fill="var(--plate-dim)" text-anchor="middle">
-              <text x="30" y="-6">0</text><text x="80" y="-6">1</text><text x="130" y="-6">2</text>
-              <text x="180" y="-6">3</text><text x="230" y="-6">4</text><text x="280" y="-6">5</text>
-            </g>
-            <g fill="var(--plate-dim)" text-anchor="end">
-              <text x="-10" y="20">0</text><text x="-10" y="70">1</text><text x="-10" y="120">2</text>
-              <text x="-10" y="170">3</text><text x="-10" y="220">4</text><text x="-10" y="270">5</text>
-            </g>
-
-            <!-- cells: draw diagonal, home lower-left, away upper-right. opacity ~ prob -->
+    <figure class="figure reveal">
+      <div class="scroll-x">
+        <svg class="dia" viewBox="0 0 920 420" width="920" height="420" style="min-width:640px" role="img" aria-labelledby="s4-t" aria-describedby="s4-d">
+          <title id="s4-t">Dixon–Coles scoreline matrix</title>
+          <desc id="s4-d">Worked example with expected home goals 1.74 and expected away goals 0.92 at the committed rho of minus 0.11. Home goals run down the rows and away goals across the columns. The lower triangle sums to a home-win probability of 0.555, the diagonal to a draw probability of 0.260, the upper triangle to an away-win probability of 0.185. The most likely single score is 1–1 at 0.124.</desc>
+          <defs><marker id="ar4" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="var(--accent)"/></marker></defs>
+          <text x="20" y="28" class="mono">λ = E[home goals] = 1.74     μ = E[away goals] = 0.92     ρ = <tspan data-src="config.json#dixon_coles_rho" data-fmt="2">−0.11</tspan></text>
+          <g class="mono" transform="translate(70,70)">
+            <text x="150" y="-26" class="dim" text-anchor="middle">away goals →</text>
+            <text x="-48" y="150" class="dim" text-anchor="middle" transform="rotate(-90,-48,150)">home goals →</text>
+            <g class="dim" text-anchor="middle"><text x="30" y="-8">0</text><text x="80" y="-8">1</text><text x="130" y="-8">2</text><text x="180" y="-8">3</text><text x="230" y="-8">4</text><text x="280" y="-8">5</text></g>
+            <g class="dim" text-anchor="end"><text x="-10" y="20">0</text><text x="-10" y="60">1</text><text x="-10" y="100">2</text><text x="-10" y="140">3</text><text x="-10" y="180">4</text><text x="-10" y="220">5</text></g>
             <!-- row 0 -->
-            <rect x="6"  y="0"  width="48" height="30" fill="var(--draw)" opacity="0.55"/><text x="30" y="19" text-anchor="middle" fill="#fff">.084</text>
-            <rect x="56" y="0"  width="48" height="30" fill="var(--away)" opacity="0.42"/><text x="80" y="19" text-anchor="middle" fill="#fff">.077</text>
-            <rect x="106" y="0" width="48" height="30" fill="var(--away)" opacity="0.20"/><text x="130" y="19" text-anchor="middle" fill="var(--plate-ink)">.035</text>
-            <rect x="156" y="0" width="48" height="30" fill="var(--away)" opacity="0.09"/><text x="180" y="19" text-anchor="middle" fill="var(--plate-dim)">.011</text>
-            <rect x="206" y="0" width="48" height="30" fill="var(--away)" opacity="0.04"/><text x="230" y="19" text-anchor="middle" fill="var(--plate-dim)">.002</text>
-            <rect x="256" y="0" width="48" height="30" fill="var(--away)" opacity="0.02"/>
+            <rect x="6" y="0" width="48" height="30" rx="5" class="seg-d" opacity="0.66"/><text x="30" y="19" text-anchor="middle" style="fill:var(--seg-draw-ink)">.082</text>
+            <rect x="56" y="0" width="48" height="30" rx="5" class="seg-a" opacity="0.42"/><text x="80" y="19" text-anchor="middle">.052</text>
+            <rect x="106" y="0" width="48" height="30" rx="5" class="seg-a" opacity="0.24"/><text x="130" y="19" text-anchor="middle">.030</text>
+            <rect x="156" y="0" width="48" height="30" rx="5" class="seg-a" opacity="0.07"/><text x="180" y="19" text-anchor="middle" class="dim">.009</text>
+            <rect x="206" y="0" width="48" height="30" rx="5" class="seg-a" opacity="0.02"/><text x="230" y="19" text-anchor="middle" class="dim">.002</text>
+            <rect x="256" y="0" width="48" height="30" rx="5" class="seg-a" opacity="0.01"/>
             <!-- row 1 -->
-            <rect x="6"  y="40" width="48" height="30" fill="var(--home)" opacity="0.55"/><text x="30" y="59" text-anchor="middle" fill="#fff">.146</text>
-            <rect x="56" y="40" width="48" height="30" fill="var(--draw)" opacity="0.52"/><text x="80" y="59" text-anchor="middle" fill="#fff">.134</text>
-            <rect x="106" y="40" width="48" height="30" fill="var(--away)" opacity="0.22"/><text x="130" y="59" text-anchor="middle" fill="var(--plate-ink)">.061</text>
-            <rect x="156" y="40" width="48" height="30" fill="var(--away)" opacity="0.10"/><text x="180" y="59" text-anchor="middle" fill="var(--plate-dim)">.019</text>
-            <rect x="206" y="40" width="48" height="30" fill="var(--away)" opacity="0.04"/>
-            <rect x="256" y="40" width="48" height="30" fill="var(--away)" opacity="0.02"/>
+            <rect x="6" y="40" width="48" height="30" rx="5" class="seg-h" opacity="0.88"/><text x="30" y="59" text-anchor="middle" style="fill:var(--seg-home-ink)">.109</text>
+            <rect x="56" y="40" width="48" height="30" rx="5" class="seg-d" opacity="1"/><text x="80" y="59" text-anchor="middle" class="b" style="fill:var(--seg-draw-ink)">.124</text>
+            <rect x="106" y="40" width="48" height="30" rx="5" class="seg-a" opacity="0.42"/><text x="130" y="59" text-anchor="middle">.052</text>
+            <rect x="156" y="40" width="48" height="30" rx="5" class="seg-a" opacity="0.13"/><text x="180" y="59" text-anchor="middle" class="dim">.016</text>
+            <rect x="206" y="40" width="48" height="30" rx="5" class="seg-a" opacity="0.03"/><text x="230" y="59" text-anchor="middle" class="dim">.004</text>
+            <rect x="256" y="40" width="48" height="30" rx="5" class="seg-a" opacity="0.01"/>
             <!-- row 2 -->
-            <rect x="6"  y="80" width="48" height="30" fill="var(--home)" opacity="0.40"/><text x="30" y="99" text-anchor="middle" fill="#fff">.127</text>
-            <rect x="56" y="80" width="48" height="30" fill="var(--home)" opacity="0.38"/><text x="80" y="99" text-anchor="middle" fill="#fff">.117</text>
-            <rect x="106" y="80" width="48" height="30" fill="var(--draw)" opacity="0.30"/><text x="130" y="99" text-anchor="middle" fill="var(--plate-ink)">.053</text>
-            <rect x="156" y="80" width="48" height="30" fill="var(--away)" opacity="0.08"/><text x="180" y="99" text-anchor="middle" fill="var(--plate-dim)">.016</text>
-            <rect x="206" y="80" width="48" height="30" fill="var(--away)" opacity="0.03"/>
-            <rect x="256" y="80" width="48" height="30" fill="var(--away)" opacity="0.01"/>
+            <rect x="6" y="80" width="48" height="30" rx="5" class="seg-h" opacity="0.85"/><text x="30" y="99" text-anchor="middle" style="fill:var(--seg-home-ink)">.106</text>
+            <rect x="56" y="80" width="48" height="30" rx="5" class="seg-h" opacity="0.78"/><text x="80" y="99" text-anchor="middle" style="fill:var(--seg-home-ink)">.097</text>
+            <rect x="106" y="80" width="48" height="30" rx="5" class="seg-d" opacity="0.36"/><text x="130" y="99" text-anchor="middle">.045</text>
+            <rect x="156" y="80" width="48" height="30" rx="5" class="seg-a" opacity="0.11"/><text x="180" y="99" text-anchor="middle" class="dim">.014</text>
+            <rect x="206" y="80" width="48" height="30" rx="5" class="seg-a" opacity="0.02"/><text x="230" y="99" text-anchor="middle" class="dim">.003</text>
+            <rect x="256" y="80" width="48" height="30" rx="5" class="seg-a" opacity="0.01"/>
             <!-- row 3 -->
-            <rect x="6"  y="120" width="48" height="30" fill="var(--home)" opacity="0.22"/><text x="30" y="139" text-anchor="middle" fill="var(--plate-ink)">.074</text>
-            <rect x="56" y="120" width="48" height="30" fill="var(--home)" opacity="0.20"/><text x="80" y="139" text-anchor="middle" fill="var(--plate-ink)">.068</text>
-            <rect x="106" y="120" width="48" height="30" fill="var(--home)" opacity="0.11"/><text x="130" y="139" text-anchor="middle" fill="var(--plate-dim)">.031</text>
-            <rect x="156" y="120" width="48" height="30" fill="var(--draw)" opacity="0.12"/><text x="180" y="139" text-anchor="middle" fill="var(--plate-dim)">.009</text>
-            <rect x="206" y="120" width="48" height="30" fill="var(--away)" opacity="0.02"/>
-            <rect x="256" y="120" width="48" height="30" fill="var(--away)" opacity="0.01"/>
+            <rect x="6" y="120" width="48" height="30" rx="5" class="seg-h" opacity="0.49"/><text x="30" y="139" text-anchor="middle">.061</text>
+            <rect x="56" y="120" width="48" height="30" rx="5" class="seg-h" opacity="0.46"/><text x="80" y="139" text-anchor="middle">.057</text>
+            <rect x="106" y="120" width="48" height="30" rx="5" class="seg-h" opacity="0.21"/><text x="130" y="139" text-anchor="middle">.026</text>
+            <rect x="156" y="120" width="48" height="30" rx="5" class="seg-d" opacity="0.06"/><text x="180" y="139" text-anchor="middle" class="dim">.008</text>
+            <rect x="206" y="120" width="48" height="30" rx="5" class="seg-a" opacity="0.02"/><text x="230" y="139" text-anchor="middle" class="dim">.002</text>
+            <rect x="256" y="120" width="48" height="30" rx="5" class="seg-a" opacity="0.01"/>
             <!-- row 4 -->
-            <rect x="6"  y="160" width="48" height="30" fill="var(--home)" opacity="0.10"/><text x="30" y="179" text-anchor="middle" fill="var(--plate-dim)">.032</text>
-            <rect x="56" y="160" width="48" height="30" fill="var(--home)" opacity="0.09"/><text x="80" y="179" text-anchor="middle" fill="var(--plate-dim)">.030</text>
-            <rect x="106" y="160" width="48" height="30" fill="var(--home)" opacity="0.05"/><text x="130" y="179" text-anchor="middle" fill="var(--plate-dim)">.013</text>
-            <rect x="156" y="160" width="48" height="30" fill="var(--home)" opacity="0.02"/>
-            <rect x="206" y="160" width="48" height="30" fill="var(--draw)" opacity="0.04"/>
-            <rect x="256" y="160" width="48" height="30" fill="var(--away)" opacity="0.01"/>
+            <rect x="6" y="160" width="48" height="30" rx="5" class="seg-h" opacity="0.22"/><text x="30" y="179" text-anchor="middle">.027</text>
+            <rect x="56" y="160" width="48" height="30" rx="5" class="seg-h" opacity="0.20"/><text x="80" y="179" text-anchor="middle">.025</text>
+            <rect x="106" y="160" width="48" height="30" rx="5" class="seg-h" opacity="0.09"/><text x="130" y="179" text-anchor="middle" class="dim">.011</text>
+            <rect x="156" y="160" width="48" height="30" rx="5" class="seg-h" opacity="0.02"/><text x="180" y="179" text-anchor="middle" class="dim">.003</text>
+            <rect x="206" y="160" width="48" height="30" rx="5" class="seg-d" opacity="0.02"/>
+            <rect x="256" y="160" width="48" height="30" rx="5" class="seg-a" opacity="0.01"/>
             <!-- row 5 -->
-            <rect x="6"  y="200" width="48" height="30" fill="var(--home)" opacity="0.04"/>
-            <rect x="56" y="200" width="48" height="30" fill="var(--home)" opacity="0.03"/>
-            <rect x="106" y="200" width="48" height="30" fill="var(--home)" opacity="0.02"/>
-            <rect x="156" y="200" width="48" height="30" fill="var(--home)" opacity="0.01"/>
-            <rect x="206" y="200" width="48" height="30" fill="var(--home)" opacity="0.01"/>
-            <rect x="256" y="200" width="48" height="30" fill="var(--draw)" opacity="0.02"/>
-
-            <!-- tau highlight on 4 low cells -->
-            <rect x="6" y="0" width="98" height="70" fill="none" stroke="var(--plate-flash)" stroke-width="2" stroke-dasharray="4 3"/>
-            <text x="130" y="-40" fill="var(--plate-flash)" font-size="11" font-family="Newsreader, serif" font-style="italic">τ correction: 0-0, 1-0, 0-1, 1-1</text>
-            <path d="M110 -34 L70 -8" stroke="var(--plate-flash)" stroke-width="1" marker-end="url(#ar4)"/>
+            <rect x="6" y="200" width="48" height="30" rx="5" class="seg-h" opacity="0.07"/><text x="30" y="219" text-anchor="middle" class="dim">.009</text>
+            <rect x="56" y="200" width="48" height="30" rx="5" class="seg-h" opacity="0.07"/><text x="80" y="219" text-anchor="middle" class="dim">.009</text>
+            <rect x="106" y="200" width="48" height="30" rx="5" class="seg-h" opacity="0.03"/><text x="130" y="219" text-anchor="middle" class="dim">.004</text>
+            <rect x="156" y="200" width="48" height="30" rx="5" class="seg-h" opacity="0.01"/>
+            <rect x="206" y="200" width="48" height="30" rx="5" class="seg-h" opacity="0.01"/>
+            <rect x="256" y="200" width="48" height="30" rx="5" class="seg-d" opacity="0.01"/>
+            <rect x="6" y="0" width="98" height="70" rx="6" class="stroke-acc" stroke-width="2" stroke-dasharray="4 3"/>
+            <text x="130" y="-46" class="acc">τ correction: 0–0, 1–0, 0–1, 1–1</text>
+            <path d="M120 -40 L70 -8" stroke="var(--accent)" stroke-width="1" marker-end="url(#ar4)"/>
           </g>
-
-          <!-- sums -->
-          <g font-family="JetBrains Mono, monospace" font-size="12" transform="translate(430,70)">
-            <rect x="0" y="8" width="12" height="12" fill="var(--home)"/>
-            <text x="22" y="19" fill="var(--plate-ink)">lower triangle&nbsp;&nbsp;Σ = P(H) = 0.58</text>
-            <rect x="0" y="38" width="12" height="12" fill="var(--draw)"/>
-            <text x="22" y="49" fill="var(--plate-ink)">diagonal&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Σ = P(D) = 0.26</text>
-            <rect x="0" y="68" width="12" height="12" fill="var(--away)"/>
-            <text x="22" y="79" fill="var(--plate-ink)">upper triangle&nbsp;&nbsp;Σ = P(A) = 0.16</text>
-
-            <text x="0" y="128" fill="var(--plate-dim)" font-family="Newsreader, serif" font-style="italic" font-size="13">The same matrix gives the exact-score</text>
-            <text x="0" y="148" fill="var(--plate-dim)" font-family="Newsreader, serif" font-size="13">distribution the predictor shows as a grid —</text>
-            <text x="0" y="168" fill="var(--plate-dim)" font-family="Newsreader, serif" font-size="13">1-0 is the single most likely line here.</text>
+          <g class="mono" transform="translate(430,80)">
+            <rect x="0" y="8" width="12" height="12" rx="3" class="seg-h"/><text x="22" y="19">lower triangle   Σ = P(H) = 0.555</text>
+            <rect x="0" y="38" width="12" height="12" rx="3" class="seg-d"/><text x="22" y="49">diagonal         Σ = P(D) = 0.260</text>
+            <rect x="0" y="68" width="12" height="12" rx="3" class="seg-a"/><text x="22" y="79">upper triangle   Σ = P(A) = 0.185</text>
+            <text x="0" y="128" class="dim" font-family="var(--font)">The same matrix gives the exact-score grid</text>
+            <text x="0" y="148" class="dim" font-family="var(--font)">the predictions browser shows; 1–1 is the</text>
+            <text x="0" y="168" class="dim" font-family="var(--font)">single most likely line here, at 12.4%.</text>
           </g>
+          <text x="20" y="360" class="dim">Worked example: λ and μ are chosen for illustration; ρ is the committed value and the cells are computed from it.</text>
         </svg>
       </div>
-      <figcaption><b>Goals in, outcomes out.</b> <span class="var">ρ</span>, the strength of the low-score
-        correction, is fit on the validation seasons. Model&nbsp;B tends to be sharper than Model&nbsp;A
-        on tight, low-scoring games.</figcaption>
+      <figcaption><span class="fig-label">Figure 4</span><b>Goals in, outcomes out.</b> <span class="var">ρ</span>, the strength of the low-score correction, is fit on the validation seasons. Model B tends to be sharper than Model A on tight, low-scoring games.</figcaption>
     </figure>
   </section>
 
   <!-- STAGE 5 -->
-  <section class="stage" id="s5">
-    <div class="col">
-      <div class="stage-head"><span class="stage-num">05</span><h2>Blend the two, then make the numbers honest</h2></div>
-      <p>Model&nbsp;A and Model&nbsp;B make different mistakes, so a weighted average of the two beats
-        either alone. The weight <span class="var">w</span> is whatever minimises log loss on the
-        validation seasons — the goal model earns anywhere from 10% to 70% of the vote depending on
-        which seasons it is tuned against.</p>
-      <p>Last step: <b>calibration</b>. A model can have a good log loss and still be slightly
-        over-confident — it says 65%, it happens 58%. One temperature parameter
-        <span class="var">T</span> ≈ 1.0, fit on validation, gently rescales every probability until
-        the stated chance matches the observed rate. Here the blend was already close, so
-        <span class="var">T</span> barely moves.</p>
+  <section class="section wrap" id="s5" aria-labelledby="s5-h">
+    <div class="prose reveal">
+      <div class="section-head"><span class="section-num">05</span><h2 id="s5-h">Blend the two, then make the numbers honest</h2></div>
+      <p>Model A and Model B make different mistakes, so a weighted average of the two beats either alone. The weight <span class="var">w</span> is whatever minimises log loss on the tuning seasons. In the committed model it is <span class="num" data-src="config.json#blend_weight_w" data-fmt="2">0.30</span> on the classifier, so the goal model carries 70% of the vote. The weight is not stable across tuning windows: the bundle tuned on 2021-23, which produced the test-season numbers, put about <span class="num" data-src="site_stats.json#blend_reconstructed.test.w_clf" data-fmt="3">0.925</span> on the classifier (reconstructed from the published test predictions).</p>
+      <p>Last step: <b>calibration</b>. A model can have a good log loss and still be slightly over-confident: it says 65%, it happens 58%. One temperature parameter <span class="var">T</span> = <span class="num" data-src="config.json#temperature" data-fmt="2">1.04</span>, fit on the tuning block, gently rescales every probability so the stated chance matches the observed rate. Here the blend was already close, so <span class="var">T</span> barely moves.</p>
     </div>
-
-    <figure>
-      <div class="plate">
-        <svg viewBox="0 0 920 300" role="img" aria-label="Model A and Model B probability bars combined by weight w, then temperature-scaled, with a small reliability curve.">
-          <defs>
-            <marker id="ar5" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-              <path d="M0 0 L10 5 L0 10 z" fill="var(--plate-arrow)"/>
-            </marker>
-          </defs>
-          <g font-family="JetBrains Mono, monospace" font-size="11">
-            <text x="20" y="34" fill="var(--plate-dim)">A · classifier</text>
-            <rect x="20" y="44" width="150" height="16" fill="var(--home)"/><rect x="20" y="64" width="52" height="16" fill="var(--draw)"/><rect x="20" y="84" width="38" height="16" fill="var(--away)"/>
-            <text x="20" y="128" fill="var(--plate-dim)">B · goal model</text>
-            <rect x="20" y="138" width="132" height="16" fill="var(--home)"/><rect x="20" y="158" width="62" height="16" fill="var(--draw)"/><rect x="20" y="178" width="42" height="16" fill="var(--away)"/>
-
-            <text x="235" y="104" fill="var(--plate-ink)" font-size="13">w·A + (1−w)·B</text>
-            <path d="M210 110 L228 110" stroke="var(--plate-arrow)" marker-end="url(#ar5)"/>
-            <path d="M360 110 L392 110" stroke="var(--plate-arrow)" marker-end="url(#ar5)"/>
-            <text x="360" y="98" fill="var(--plate-dim)" font-size="10">T</text>
-
-            <text x="410" y="60" fill="var(--plate-dim)">final</text>
-            <rect x="410" y="70" width="146" height="18" fill="var(--home)"/><text x="564" y="84" fill="var(--plate-ink)">0.63 H</text>
-            <rect x="410" y="94" width="58" height="18" fill="var(--draw)"/><text x="476" y="108" fill="var(--plate-ink)">0.23 D</text>
-            <rect x="410" y="118" width="40" height="18" fill="var(--away)"/><text x="458" y="132" fill="var(--plate-ink)">0.14 A</text>
+    <figure class="figure reveal">
+      <div class="scroll-x">
+        <svg class="dia" viewBox="0 0 920 300" width="920" height="300" style="min-width:640px" role="img" aria-labelledby="s5-t" aria-describedby="s5-d">
+          <title id="s5-t">Blend and reliability curve</title>
+          <desc id="s5-d">Left: Model A and Model B probability bars combined by weight w and then temperature-scaled into the final probabilities. Right: the reliability curve of the predicted home-win probability on the test seasons, ten deciles, which tracks the diagonal at the extremes and wobbles in the middle.</desc>
+          <defs><marker id="ar5" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="var(--accent)"/></marker></defs>
+          <g class="mono">
+            <text x="20" y="34" class="dim">A · classifier</text>
+            <rect x="20" y="44" width="150" height="16" rx="3" class="seg-h"/><rect x="20" y="64" width="52" height="16" rx="3" class="seg-d"/><rect x="20" y="84" width="38" height="16" rx="3" class="seg-a"/>
+            <text x="20" y="128" class="dim">B · goal model</text>
+            <rect x="20" y="138" width="132" height="16" rx="3" class="seg-h"/><rect x="20" y="158" width="62" height="16" rx="3" class="seg-d"/><rect x="20" y="178" width="42" height="16" rx="3" class="seg-a"/>
+            <text x="228" y="104" font-size="14">w·A + (1−w)·B</text>
+            <path d="M200 110 L220 110" stroke="var(--accent)" marker-end="url(#ar5)"/>
+            <path d="M360 110 L392 110" stroke="var(--accent)" marker-end="url(#ar5)"/>
+            <text x="368" y="98" class="dim">T</text>
+            <text x="410" y="60" class="dim">final (schematic)</text>
+            <rect x="410" y="70" width="146" height="18" rx="3" class="seg-h"/><text x="564" y="84">0.63 H</text>
+            <rect x="410" y="94" width="58" height="18" rx="3" class="seg-d"/><text x="476" y="108">0.23 D</text>
+            <rect x="410" y="118" width="40" height="18" rx="3" class="seg-a"/><text x="458" y="132">0.14 A</text>
           </g>
-
-          <!-- reliability curve -->
-          <g transform="translate(650,40)" font-family="JetBrains Mono, monospace" font-size="9" fill="var(--plate-dim)">
-            <text x="90" y="-8" text-anchor="middle" font-size="10" fill="var(--plate-dim)">reliability — P(home win)</text>
-            <rect x="0" y="0" width="180" height="180" fill="none" stroke="var(--plate-hair)"/>
-            <line x1="0" y1="180" x2="180" y2="0" stroke="var(--plate-hair)" stroke-dasharray="3 3"/>
-            <polyline points="10,168 45,150 80,120 115,86 150,44 172,16" fill="none" stroke="var(--plate-arrow)" stroke-width="2"/>
-            <circle cx="10" cy="168" r="2.5" fill="var(--plate-arrow)"/><circle cx="45" cy="150" r="2.5" fill="var(--plate-arrow)"/>
-            <circle cx="80" cy="120" r="2.5" fill="var(--plate-arrow)"/><circle cx="115" cy="86" r="2.5" fill="var(--plate-arrow)"/>
-            <circle cx="150" cy="44" r="2.5" fill="var(--plate-arrow)"/><circle cx="172" cy="16" r="2.5" fill="var(--plate-arrow)"/>
-            <text x="0" y="196">predicted →</text>
-            <text x="-6" y="4" text-anchor="end" transform="rotate(-90,-6,4)">actual →</text>
+          <g transform="translate(660,40)">
+            <text x="100" y="-10" class="dim mono" text-anchor="middle">reliability: P(home win), test deciles</text>
+            <rect x="0" y="0" width="200" height="200" class="stroke"/>
+            <line x1="0" y1="200" x2="200" y2="0" stroke="var(--line)" stroke-dasharray="3 3"/>
+            <polyline points="25.8,185.8 43.8,154.2 59.2,157.2 70.4,120 83,114.2 96.4,116 110.2,62.8 125.2,105.8 142.2,62.8 164,42.8" fill="none" stroke="var(--accent)" stroke-width="2"/>
+            <g fill="var(--accent)">
+              <circle cx="25.8" cy="185.8" r="3"/><circle cx="43.8" cy="154.2" r="3"/><circle cx="59.2" cy="157.2" r="3"/><circle cx="70.4" cy="120" r="3"/><circle cx="83" cy="114.2" r="3"/><circle cx="96.4" cy="116" r="3"/><circle cx="110.2" cy="62.8" r="3"/><circle cx="125.2" cy="105.8" r="3"/><circle cx="142.2" cy="62.8" r="3"/><circle cx="164" cy="42.8" r="3"/>
+            </g>
+            <text x="0" y="218" class="dim mono" font-size="11">predicted → 0 to 1</text>
+            <text x="-8" y="4" class="dim mono" font-size="11" text-anchor="end" transform="rotate(-90,-8,4)">observed → 0 to 1</text>
           </g>
         </svg>
       </div>
-      <figcaption><b>One number out per outcome.</b> The reliability curve hugs the diagonal after
-        temperature scaling — points on it mean &ldquo;when the model says 40%, it happens ~40% of the
-        time.&rdquo;</figcaption>
+      <figcaption><span class="fig-label">Figure 5</span><b>One number out per outcome.</b> The reliability curve plots the mean predicted home-win probability against the observed home-win rate in each decile of the <span class="num" data-src="ui_meta.json#test.n" data-fmt="int">699</span> test matches. Points on the diagonal mean "when the model says 40%, it happens about 40% of the time". The extremes sit close; the middle deciles wobble, with about 70 matches each, which is the sample-size noise you would expect.</figcaption>
     </figure>
   </section>
 
   <!-- STAGE 6 -->
-  <section class="stage" id="s6">
-    <div class="col">
-      <div class="stage-head"><span class="stage-num">06</span><h2>The Elo engine, upgraded</h2></div>
-      <p>Elo is the single most important feature — one number per club that moves after every match
-        and quietly absorbs strength of schedule. Three changes over the textbook version:</p>
-      <p><b>Margin matters.</b> A 5-0 and a stoppage-time 1-0 used to move ratings by the same amount.
-        Now the update step scales with <span class="var">√|Δgoals|</span>. <b>Home advantage drifts.</b>
-        Instead of a fixed 60 rating points, each season is fed the home edge implied by the previous
-        three — it fell to the high-30s around the empty-stadium 2020-21 season and the model
-        shouldn&rsquo;t expect a 2005-size boost in 2021.</p>
+  <section class="section wrap" id="s6" aria-labelledby="s6-h">
+    <div class="prose reveal">
+      <div class="section-head"><span class="section-num">06</span><h2 id="s6-h">The Elo engine, upgraded</h2></div>
+      <p>Elo is the strongest single pre-model signal: one number per club that moves after every match and quietly absorbs strength of schedule. Three changes over the textbook version:</p>
+      <p><b>Margin matters.</b> A 5–0 and a stoppage-time 1–0 used to move ratings by the same amount. Now the update step scales with <span class="var">√|Δgoals|</span>. <b>Home advantage drifts.</b> Instead of a fixed 60 rating points, each season is fed the home edge implied by the previous three seasons' results. <b>Ratings regress.</b> Every August each rating moves 25% of the way back to 1500, and promoted clubs enter at 1500.</p>
     </div>
-
-    <figure>
-      <div class="plate">
-        <svg viewBox="0 0 920 320" role="img" aria-label="Elo update flow and a line chart of home-field advantage by season dipping around 2020-21.">
-          <defs>
-            <marker id="ar6" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-              <path d="M0 0 L10 5 L0 10 z" fill="var(--plate-arrow)"/>
-            </marker>
-          </defs>
-          <g font-family="JetBrains Mono, monospace" font-size="12" fill="var(--plate-ink)">
-            <rect x="20" y="40" width="150" height="40" rx="6" fill="none" stroke="var(--plate-hair)"/>
-            <text x="34" y="58" font-size="10" fill="var(--plate-dim)">ratings + home edge</text>
-            <text x="34" y="73">Rₕ + HFA&nbsp;·&nbsp;Rₐ</text>
-            <path d="M172 60 L212 60" stroke="var(--plate-arrow)" marker-end="url(#ar6)"/>
-            <rect x="214" y="40" width="128" height="40" rx="6" fill="none" stroke="var(--plate-hair)"/>
-            <text x="228" y="58" font-size="10" fill="var(--plate-dim)">expected score</text>
-            <text x="228" y="73">E = 0.68</text>
-            <path d="M344 60 L384 60" stroke="var(--plate-arrow)" marker-end="url(#ar6)"/>
-            <rect x="386" y="40" width="150" height="40" rx="6" fill="none" stroke="var(--plate-hair)"/>
-            <text x="400" y="58" font-size="10" fill="var(--plate-dim)">play — result 3-1</text>
-            <text x="400" y="73">S = 1,&nbsp;&nbsp;|Δg| = 2</text>
-            <path d="M300 88 L300 116" stroke="var(--plate-arrow)" marker-end="url(#ar6)"/>
-            <text x="60" y="140" fill="var(--plate-flash)" font-family="Newsreader, serif" font-style="italic" font-size="13">R ← R + K·√|Δg|·(S − E)</text>
-            <text x="60" y="160" fill="var(--plate-dim)" font-family="Newsreader, serif" font-size="12">= R + 20·1.41·(1 − 0.68) = R + 9.0 &nbsp; (a plain win would be +6.4)</text>
+    <figure class="figure reveal">
+      <div class="scroll-x">
+        <svg class="dia" viewBox="0 0 920 320" width="920" height="320" style="min-width:640px" role="img" aria-labelledby="s6-t" aria-describedby="s6-d">
+          <title id="s6-t">Elo update and the home-field advantage fed to it by season</title>
+          <desc id="s6-d">Left: ratings plus home edge give an expected score, the match is played, and the rating moves by K times the square root of the goal margin times the surprise. Right: a line chart of the home-field advantage in rating points by season from 2000-01 to 2026-27, in the 60s and 70s through the 2000s, drifting down to the 50s in the mid-2010s, then dropping to the mid-20s by 2022-23 after the empty-stadium season entered the window, and recovering to the 40s.</desc>
+          <defs><marker id="ar6" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="var(--accent)"/></marker></defs>
+          <g class="mono">
+            <rect class="stroke" x="20" y="40" width="150" height="40" rx="8"/><text x="34" y="58" class="dim" font-size="10">ratings + home edge</text><text x="34" y="73">Rₕ + HFA  ·  Rₐ</text>
+            <path d="M172 60 L212 60" stroke="var(--accent)" marker-end="url(#ar6)"/>
+            <rect class="stroke" x="214" y="40" width="128" height="40" rx="8"/><text x="228" y="58" class="dim" font-size="10">expected score</text><text x="228" y="73">E = 0.68</text>
+            <path d="M344 60 L384 60" stroke="var(--accent)" marker-end="url(#ar6)"/>
+            <rect class="stroke" x="386" y="40" width="150" height="40" rx="8"/><text x="400" y="58" class="dim" font-size="10">play: result 3–1</text><text x="400" y="73">S = 1,  |Δg| = 2</text>
+            <path d="M300 88 L300 116" stroke="var(--accent)" marker-end="url(#ar6)"/>
+            <text x="60" y="140" class="acc b">R ← R + K·√|Δg|·(S − E)</text>
+            <text x="60" y="160" class="dim">= R + 20·1.41·(1 − 0.68) = R + 9.0   (a plain win would be +6.4)</text>
+            <text x="60" y="184" class="dim" font-family="var(--font)">Worked example: K = 20, expected score chosen for illustration.</text>
           </g>
-
-          <!-- HFA line chart -->
-          <g transform="translate(560,110)" font-family="JetBrains Mono, monospace" font-size="9" fill="var(--plate-dim)">
-            <text x="150" y="-14" text-anchor="middle" font-size="10">home-field advantage fed to Elo, by season</text>
-            <line x1="0" y1="120" x2="300" y2="120" stroke="var(--plate-hair)"/>
-            <line x1="0" y1="0" x2="0" y2="120" stroke="var(--plate-hair)"/>
-            <text x="-8" y="6" text-anchor="end">80</text>
-            <text x="-8" y="64" text-anchor="end">55</text>
-            <text x="-8" y="118" text-anchor="end">30</text>
-            <polyline fill="none" stroke="var(--plate-arrow)" stroke-width="2"
-              points="0,34 40,40 80,44 120,52 160,66 190,96 210,104 240,84 270,72 300,66"/>
-            <circle cx="190" cy="96" r="3" fill="var(--plate-flash)"/>
-            <text x="190" y="112" text-anchor="middle" fill="var(--plate-flash)">2020-21</text>
-            <text x="0" y="134">2003</text><text x="300" y="134" text-anchor="end">2026</text>
+          <g transform="translate(560,110)" class="mono" font-size="10">
+            <text x="160" y="-16" class="dim" text-anchor="middle">home-field advantage fed to Elo, rating points, by season</text>
+            <line x1="0" y1="120" x2="320" y2="120" stroke="var(--line)"/>
+            <line x1="0" y1="0" x2="0" y2="120" stroke="var(--line)"/>
+            <text x="-8" y="4" class="dim" text-anchor="end">90</text>
+            <text x="-8" y="64" class="dim" text-anchor="end">55</text>
+            <text x="-8" y="122" class="dim" text-anchor="end">20</text>
+            <polyline fill="none" stroke="var(--accent)" stroke-width="2" points="0,51.4 12.3,12.2 24.6,43.3 36.9,35.7 49.2,50.3 61.5,36.8 73.8,38.4 86.2,27.5 98.5,29.7 110.8,39.5 123.1,28.6 135.4,19.3 147.7,23.7 160,46.5 172.3,64.3 184.6,63.2 196.9,73.3 209.2,61.6 221.5,57.3 233.8,50.9 246.2,62.7 258.5,101.9 270.8,111.9 283.1,101.9 295.4,69.6 307.7,75.5 320,89.8"/>
+            <circle cx="270.8" cy="111.9" r="3.5" fill="var(--accent)"/>
+            <text x="262" y="140" class="acc" text-anchor="middle">2022-23: <tspan data-src="site_stats.json#hfa_by_season.2022-23" data-fmt="1">24.7</tspan></text>
+            <circle cx="135.4" cy="19.3" r="3.5" fill="var(--accent)"/>
+            <text x="135" y="10" class="acc" text-anchor="middle">2011-12: <tspan data-src="site_stats.json#hfa_by_season.2011-12" data-fmt="1">78.7</tspan></text>
+            <text x="0" y="136" class="dim">2000-01</text><text x="320" y="136" class="dim" text-anchor="end">2026-27</text>
           </g>
         </svg>
       </div>
-      <figcaption><b>Elo carries the schedule.</b> Ratings regress 25% toward 1500 each August;
-        promoted clubs enter at 1500. The current top three by rating: Arsenal, Man City, Liverpool.</figcaption>
+      <figcaption><span class="fig-label">Figure 6</span><b>Elo carries the schedule.</b> The home-edge curve is recomputed from the season files with the same formula the feature notebook uses: the mean home points-rate of the previous three seasons, converted to rating points. It peaked at <span class="num" data-src="site_stats.json#hfa_by_season.2011-12" data-fmt="1">78.7</span> for 2011-12 and bottomed at <span class="num" data-src="site_stats.json#hfa_by_season.2022-23" data-fmt="1">24.7</span> for 2022-23, once the empty-stadium 2020-21 season sat inside the window. The three highest ratings in the index today: <span data-src="site_stats.json#elo_top[0].team">Arsenal</span> (<span class="num" data-src="site_stats.json#elo_top[0].elo" data-fmt="int">1720</span>), <span data-src="site_stats.json#elo_top[1].team">Man City</span> (<span class="num" data-src="site_stats.json#elo_top[1].elo" data-fmt="int">1716</span>), <span data-src="site_stats.json#elo_top[2].team">Man United</span> (<span class="num" data-src="site_stats.json#elo_top[2].elo" data-fmt="int">1602</span>).</figcaption>
     </figure>
   </section>
 
   <!-- SCOREBOARD -->
-  <section class="stage" id="score">
-    <div class="col">
-      <div class="stage-head"><span class="stage-num">—</span><h2>Does it actually beat the market?</h2></div>
-      <p>The bar isn&rsquo;t &ldquo;better than guessing home&rdquo; — it&rsquo;s the bookmaker&rsquo;s own
-        vig-free price. Log loss is the score that matters (lower is better; a coin-flip-ish
-        <span class="mono">1/3</span> guess is 1.099). Numbers below are on seasons the model never
-        trained on.</p>
-
-      <div class="scoreboard">
-        <h3>Test — 2023-24 &amp; 2024-25 &nbsp;<span style="color:var(--plate-dim);font-weight:400;font-size:.85rem">(model blind to both)</span></h3>
-        <div class="sb-grid">
-          <div class="sb-cell"><div class="n good">0.946</div><div class="l">model log loss</div></div>
-          <div class="sb-cell"><div class="n">0.949</div><div class="l">market log loss</div></div>
-          <div class="sb-cell"><div class="n">56.1%</div><div class="l">accuracy&nbsp;·&nbsp;always-home 43.9%</div></div>
-          <div class="sb-cell"><div class="n good">0.191</div><div class="l">RPS&nbsp;·&nbsp;market 0.193</div></div>
-        </div>
-        <p class="sb-note">Rolling-origin check — retrain before each season, score that season alone:
-          model log loss stayed in <b style="color:var(--plate-ink)">0.895&ndash;1.000</b> and beat the
-          vig-free market in <b style="color:var(--plate-ink)">5 of 7 seasons</b> (mean edge +0.002).</p>
+  <section class="section wrap" id="score" aria-labelledby="score-h">
+    <div class="prose reveal">
+      <div class="section-head"><span class="section-num">07</span><h2 id="score-h">Does it actually beat the market?</h2></div>
+      <p>The bar is not "better than guessing home"; it is the bookmaker's own vig-free price. Log loss is the score that matters (lower is better; a flat one-third guess scores 1.099). Numbers below are on seasons the model never trained on.</p>
+    </div>
+    <div class="reveal">
+      <div class="sb-title"><h3>Test: 2023-24 and 2024-25</h3><span class="muted">model blind to both · <span class="num" data-src="ui_meta.json#test.n" data-fmt="int">699</span> matches</span></div>
+      <div class="sb">
+        <div class="stat"><div class="value accent num" data-src="ui_meta.json#test.model.logloss" data-fmt="3">0.946</div><div class="label">model log loss</div></div>
+        <div class="stat"><div class="value num" data-src="ui_meta.json#test.market.logloss" data-fmt="3">0.949</div><div class="label">market log loss</div></div>
+        <div class="stat"><div class="value num" data-src="ui_meta.json#test.model.acc" data-fmt="pct1">56.1%</div><div class="label">accuracy · always-home <span class="num" data-src="ui_meta.json#test.baseline_acc" data-fmt="pct1">43.9%</span></div></div>
+        <div class="stat"><div class="value accent num" data-src="ui_meta.json#test.model.rps" data-fmt="3">0.191</div><div class="label">ranked probability score · market <span class="num" data-src="ui_meta.json#test.market.rps" data-fmt="3">0.193</span></div></div>
       </div>
+      <p class="muted prose">Rolling-origin check, refitting before each season and scoring that season alone: model log loss stayed between <span class="num" data-src="site_stats.json#rolling_origin.min_model_ll" data-fmt="3">0.895</span> and <span class="num" data-src="site_stats.json#rolling_origin.max_model_ll" data-fmt="3">1.000</span> and beat the vig-free market in <span class="num" data-src="site_stats.json#rolling_origin.beats_market" data-fmt="int">5</span> of <span class="num" data-src="site_stats.json#rolling_origin.n_seasons" data-fmt="int">7</span> seasons, with a mean edge of <span class="num" data-src="site_stats.json#rolling_origin.mean_edge" data-fmt="3">+0.002</span>.</p>
 
-      <div class="scoreboard">
-        <h3>Holdout — 2025-26 &nbsp;<span style="color:var(--plate-dim);font-weight:400;font-size:.85rem">(run once, never tuned)</span></h3>
-        <div class="sb-grid">
-          <div class="sb-cell"><div class="n">1.019</div><div class="l">model log loss</div></div>
-          <div class="sb-cell"><div class="n">1.016</div><div class="l">market log loss</div></div>
-          <div class="sb-cell"><div class="n">48.3%</div><div class="l">accuracy&nbsp;·&nbsp;always-home 42.0%</div></div>
-          <div class="sb-cell"><div class="n">0.205</div><div class="l">RPS&nbsp;·&nbsp;market 0.204</div></div>
-        </div>
-        <p class="sb-note">On the toughest, freshest slice the model finishes <b style="color:var(--plate-ink)">0.003
-          behind</b> the closing line &mdash; a tie inside the noise. Nobody beats a settled market by much;
-          matching it out of sample is the achievement.</p>
+      <div class="sb-title"><h3>Holdout: 2025-26</h3><span class="muted">run once, never tuned · <span class="num" data-src="ui_meta.json#holdout.n" data-fmt="int">350</span> matches</span></div>
+      <div class="sb">
+        <div class="stat"><div class="value num" data-src="ui_meta.json#holdout.model.logloss" data-fmt="3">1.019</div><div class="label">model log loss</div></div>
+        <div class="stat"><div class="value num" data-src="ui_meta.json#holdout.market.logloss" data-fmt="3">1.016</div><div class="label">market log loss</div></div>
+        <div class="stat"><div class="value num" data-src="ui_meta.json#holdout.model.acc" data-fmt="pct1">48.3%</div><div class="label">accuracy · always-home <span class="num" data-src="ui_meta.json#holdout.baseline_acc" data-fmt="pct1">42.0%</span></div></div>
+        <div class="stat"><div class="value num" data-src="ui_meta.json#holdout.model.rps" data-fmt="3">0.205</div><div class="label">ranked probability score · market <span class="num" data-src="ui_meta.json#holdout.market.rps" data-fmt="3">0.204</span></div></div>
       </div>
+      <p class="muted prose">On the toughest, freshest slice the model finishes 0.003 behind the closing line: a tie inside the noise. Nobody beats a settled market by much; matching it out of sample is the achievement.</p>
+    </div>
 
-      <h3>What each feature group is worth</h3>
-      <table class="mini">
-        <thead><tr><th>feature set</th><th>columns</th><th>test log loss</th></tr></thead>
-        <tbody>
-          <tr><td>form + Elo only</td><td>42</td><td>0.949</td></tr>
-          <tr><td>+ expected-goals</td><td>50</td><td>0.949</td></tr>
-          <tr><td>+ market signal</td><td>69</td><td class="win">0.946</td></tr>
-          <tr><td>+ squad value&nbsp;&nbsp;=&nbsp;all</td><td>78</td><td>0.946</td></tr>
-        </tbody>
-      </table>
-      <p style="font-size:.95rem;color:var(--ink-soft)">The market columns and the xG-form columns do the
-        real lifting on top of the price; squad value and raw shot counts are close to neutral over
-        these two seasons.</p>
+    <div class="reveal">
+      <h3 style="margin-top:var(--s-4)">What each feature group is worth</h3>
+      <div class="table-card">
+        <div class="scroll-x">
+          <table>
+            <caption>Ablation on the test seasons, classifier only, tuned on validation</caption>
+            <thead><tr><th>Feature set</th><th>Columns</th><th>Test log loss</th><th>Test accuracy</th></tr></thead>
+            <tbody>
+              <tr><td>form + Elo only</td><td class="num" data-src="ablation_result.json#ablation[0].n_feats" data-fmt="int">42</td><td class="num" data-src="ablation_result.json#ablation[0].test_logloss" data-fmt="4">0.9494</td><td class="num" data-src="ablation_result.json#ablation[0].test_acc" data-fmt="pct1">56.1%</td></tr>
+              <tr><td>+ expected goals</td><td class="num" data-src="ablation_result.json#ablation[1].n_feats" data-fmt="int">50</td><td class="num" data-src="ablation_result.json#ablation[1].test_logloss" data-fmt="4">0.9491</td><td class="num" data-src="ablation_result.json#ablation[1].test_acc" data-fmt="pct1">55.9%</td></tr>
+              <tr><td>+ market signal</td><td class="num" data-src="ablation_result.json#ablation[2].n_feats" data-fmt="int">69</td><td class="hi num" data-src="ablation_result.json#ablation[2].test_logloss" data-fmt="4">0.9455</td><td class="num" data-src="ablation_result.json#ablation[2].test_acc" data-fmt="pct1">56.2%</td></tr>
+              <tr><td>+ squad value = all 78</td><td class="num" data-src="ablation_result.json#ablation[3].n_feats" data-fmt="int">78</td><td class="num" data-src="ablation_result.json#ablation[3].test_logloss" data-fmt="4">0.9462</td><td class="num" data-src="ablation_result.json#ablation[3].test_acc" data-fmt="pct1">56.1%</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <p class="muted prose">The market columns do the real lifting on top of the price; expected goals adds a sliver, and squad value is neutral to slightly negative over these two seasons. It stays in because it is leak-free and cheap, not because it demonstrably helps.</p>
+      <p class="pull">The model does not "know" football. It knows where 25 years of results and 78 numbers disagree with the price, and moves a few points in that direction.</p>
+    </div>
+  </section>
 
-      <p class="pull">The model doesn&rsquo;t &ldquo;know&rdquo; football. It knows where 25 years of
-        results and 78 numbers disagree with the price — and moves a few points in that direction.</p>
+  <section class="section wrap">
+    <div class="prose reveal">
+      <p><b>How to read a prediction.</b> The companion tool, <a href="predictions.html">predictions</a>, shows every held-out match: the blind probabilities, the most likely scoreline from the grid in stage 4, the feature signals that moved the pick, and whether it was right. The <a href="report.html">report</a> works through the reasoning in full.</p>
+      <p class="muted small">Pipeline: <code>explore.ipynb</code> → <code>features.ipynb</code> → <code>model.ipynb</code> · numpy, pandas, xgboost · data from football-data.co.uk and FPL Core Insights.</p>
     </div>
   </section>
 </main>
 
-<footer>
-  <div class="wrap col">
-    <p><b>How to read a prediction.</b> The companion tool,
-      <a href="predictions.html">predictions</a>, shows every held-out match: the blind
-      probabilities, the most likely scoreline from the grid in stage 4, the feature signals
-      that moved the pick, and — for matches already played — whether it was right.</p>
-    <p class="mono">pipeline: explore.ipynb → features.ipynb → model.ipynb · numpy / pandas / xgboost ·
-      data football-data.co.uk + FPL Core Insights</p>
+<footer class="site-footer">
+  <div class="wrap">
+    <ul class="links">
+      <li><a href="how-it-works.html">How it works</a></li>
+      <li><a href="report.html">Report</a></li>
+      <li><a href="predictions.html">Predictions</a></li>
+      <li><a href="season.html">2026-27 season</a></li>
+      <li><a href="https://github.com/Daytoo77/pl-outcome-predictor">Source on GitHub</a></li>
+    </ul>
+    <p>Data: <a href="https://www.football-data.co.uk/englandm.php">football-data.co.uk</a> and FPL Core Insights, used non-commercially. Code and pages are MIT licensed; the match data is not.</p>
+    <p>Model probabilities are computed from pre-kickoff information for study purposes. They are not betting advice.</p>
   </div>
 </footer>
 </body>
 </html>
-

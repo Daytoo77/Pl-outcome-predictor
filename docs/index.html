@@ -3,152 +3,191 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Premier League Outcome Model</title>
-<meta name="description" content="A home / draw / away classifier for Premier League fixtures, priced against the bookmaker's line. Explainer pages, an interactive predictions browser, and the code.">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=JetBrains+Mono:wght@400;600&display=swap">
-<style>
-  :root {
-    --ground: #f4f2ea;
-    --raise: #fbfaf5;
-    --ink: #1b1e24;
-    --ink-soft: #55606e;
-    --hair: #d9d5c7;
-    --hair-soft: #e7e3d7;
-    --pitch: #3c8f4d;
-    --home: #c4881a;
-    --away: #1f8ea0;
-    --measure: 42rem;
-    color-scheme: light;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) {
-      --ground: #0f1216;
-      --raise: #161b21;
-      --ink: #e7eaf1;
-      --ink-soft: #9aa4b2;
-      --hair: #272d36;
-      --hair-soft: #1e242c;
-      --pitch: #57b56a;
-      --home: #e6b23f;
-      --away: #45b9cb;
-      color-scheme: dark;
-    }
-  }
-  * { box-sizing: border-box; }
-  body {
-    margin: 0; background: var(--ground); color: var(--ink);
-    font-family: "Newsreader", Georgia, serif; font-size: 1.14rem; line-height: 1.62;
-    -webkit-font-smoothing: antialiased;
-  }
-  .wrap { max-width: 58rem; margin: 0 auto; padding: 0 1.5rem; }
-  .col { max-width: var(--measure); }
-  h1, h2, .kicker, .card h3 { font-family: "Bricolage Grotesque", "Helvetica Neue", sans-serif; }
-  h1 { font-size: clamp(2.3rem, 6vw, 3.7rem); line-height: 1.04; font-weight: 800; letter-spacing: -0.02em; text-wrap: balance; margin: 0 0 .6rem; }
-  h2 { font-size: 1.1rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-soft); margin: 3.5rem 0 1.2rem; }
-  p { margin: 0 0 1.1rem; }
-  a { color: var(--away); text-underline-offset: 3px; }
-  code, .mono { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: .86em; }
-
-  .kicker { font-size: .82rem; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; color: var(--ink-soft); margin: 0 0 1.3rem; }
-  header.hero { padding: clamp(3.5rem, 9vw, 6.5rem) 0 2rem; }
-  .sub { font-size: 1.3rem; color: var(--ink-soft); }
-  .byline { margin-top: 1.6rem; font-size: .95rem; color: var(--ink-soft); font-family: "JetBrains Mono", monospace; }
-
-  .scores { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: 1px; background: var(--hair); border: 1px solid var(--hair); border-radius: 10px; overflow: hidden; margin: 2.2rem 0 0; }
-  .scores div { background: var(--raise); padding: 1rem 1.1rem; }
-  .scores .n { font-family: "JetBrains Mono", monospace; font-size: 1.5rem; font-weight: 600; }
-  .scores .n.good { color: var(--pitch); }
-  .scores .l { font-size: .76rem; color: var(--ink-soft); margin-top: .35rem; font-family: "JetBrains Mono", monospace; line-height: 1.35; }
-
-  .cards { display: grid; gap: 1rem; grid-template-columns: 1fr; margin: 0; padding: 0; list-style: none; }
-  @media (min-width: 40rem) { .cards { grid-template-columns: 1fr 1fr; } }
-  .card { display: block; background: var(--raise); border: 1px solid var(--hair); border-radius: 12px; padding: 1.3rem 1.4rem; text-decoration: none; color: inherit; transition: border-color .15s; }
-  .card:hover { border-color: var(--pitch); }
-  .card h3 { margin: 0 0 .35rem; font-size: 1.15rem; font-weight: 700; }
-  .card p { margin: 0; font-size: .96rem; color: var(--ink-soft); line-height: 1.5; }
-  .card .tag { font-family: "JetBrains Mono", monospace; font-size: .7rem; letter-spacing: .04em; text-transform: uppercase; color: var(--pitch); display: block; margin-bottom: .5rem; }
-
-  footer { border-top: 1px solid var(--hair); margin-top: 4rem; padding: 2.4rem 0 4rem; color: var(--ink-soft); font-size: .95rem; }
-  footer .mono { display: block; margin-top: .6rem; }
-</style>
+<title>Premier League outcome model</title>
+<meta name="description" content="A home / draw / away classifier for Premier League fixtures, priced against the bookmaker's line. Explainers, a predictions browser, season forecasts, and the code.">
+<link rel="canonical" href="https://daytoo77.github.io/pl-outcome-predictor/">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#f5f5f7">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#000000">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Premier League outcome model">
+<meta property="og:title" content="Premier League outcome model">
+<meta property="og:description" content="A home / draw / away classifier trained on 25 seasons and priced against the bookmaker's line.">
+<meta property="og:url" content="https://daytoo77.github.io/pl-outcome-predictor/">
+<meta property="og:image" content="https://daytoo77.github.io/pl-outcome-predictor/assets/og/preview.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Premier League outcome model: test log loss 0.946 against the market's 0.949.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Premier League outcome model">
+<meta name="twitter:description" content="A home / draw / away classifier trained on 25 seasons and priced against the bookmaker's line.">
+<meta name="twitter:image" content="https://daytoo77.github.io/pl-outcome-predictor/assets/og/preview.png">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<link rel="stylesheet" href="assets/css/base.css">
+<link rel="stylesheet" href="assets/css/components.css">
+<script>(function(){try{var t=localStorage.getItem('pl-theme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t);var q=/[?&]theme=(light|dark)\b/.exec(location.search);if(q)document.documentElement.setAttribute('data-theme',q[1])}catch(e){}document.documentElement.classList.add('js')})()</script>
+<script src="assets/js/site.js" defer></script>
 </head>
 <body>
-
-<header class="hero">
-  <div class="wrap col">
-    <p class="kicker">Premier League match-outcome model</p>
-    <h1>Predicting football against the bookmaker's line</h1>
-    <p class="sub">A home / draw / away classifier for Premier League fixtures, trained on 25
-      seasons and every feature knowable before kickoff. It starts from the vig-free market
-      price and only tries to improve on it.</p>
-    <p class="byline">9,074 matches · 78 pre-kickoff features · numpy / pandas / xgboost</p>
-    <div class="scores">
-      <div><div class="n good">0.946</div><div class="l">test log loss<br>market 0.949</div></div>
-      <div><div class="n">56.1%</div><div class="l">test accuracy<br>always-home 43.9%</div></div>
-      <div><div class="n">1.019</div><div class="l">holdout log loss<br>market 1.016</div></div>
-      <div><div class="n">5 / 7</div><div class="l">seasons beating<br>the market</div></div>
-    </div>
+<a class="skip" href="#main">Skip to content</a>
+<header class="site-nav">
+  <div class="wrap">
+    <a class="wordmark" href="index.html">
+      <svg viewBox="0 0 64 64" aria-hidden="true" focusable="false"><rect class="mark-bg" width="64" height="64" rx="14"/><rect class="mark-fg" x="12" y="18" width="26" height="9" rx="3"/><rect class="mark-fg" x="41" y="18" width="11" height="9" rx="3" opacity="0.55"/><rect class="mark-fg" x="12" y="37" width="15" height="9" rx="3"/><rect class="mark-fg" x="30" y="37" width="22" height="9" rx="3" opacity="0.55"/></svg>
+      PL outcome model
+    </a>
+    <nav aria-label="Site">
+      <ul class="nav-links" id="nav-links">
+        <li><a href="index.html" aria-current="page">Overview</a></li>
+        <li><a href="how-it-works.html">How it works</a></li>
+        <li><a href="pipeline.html">Pipeline</a></li>
+        <li><a href="random-forest.html">Trees</a></li>
+        <li><a href="playground.html">Playground</a></li>
+        <li><a href="predictions.html">Predictions</a></li>
+        <li><a href="season.html">Season</a></li>
+        <li><a href="report.html">Report</a></li>
+      </ul>
+    </nav>
+    <button class="icon-btn nav-menu" type="button" data-nav-toggle aria-expanded="false" aria-controls="nav-links" aria-label="Menu">
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 7h16M4 12h16M4 17h16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+    </button>
+    <button class="icon-btn theme-toggle" type="button" data-theme-toggle data-state="system" aria-label="Theme: system. Switch to light.">
+      <svg class="i-system" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/></svg>
+      <svg class="i-light" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      <svg class="i-dark" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a7 7 0 1 0 10.5 10.5z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+    </button>
   </div>
 </header>
 
-<main class="wrap col">
+<main id="main">
+  <section class="hero wrap">
+    <p class="eyebrow">Premier League match-outcome model</p>
+    <h1>Predicting football against the bookmaker's line</h1>
+    <p class="lede">A home / draw / away classifier for Premier League fixtures, trained on 25 seasons using only what is knowable before kickoff. It starts from the vig-free market price and only tries to improve on it.</p>
+    <p class="byline"><span class="num" data-src="ui_meta.json#total_matches" data-fmt="int,">9,074</span> matches · <span class="num" data-src="ui_meta.json#n_features" data-fmt="int">78</span> pre-kickoff features · numpy, pandas, xgboost</p>
+    <div class="hero-actions">
+      <a class="btn btn-primary" href="predictions.html">Browse the predictions</a>
+      <a class="btn btn-secondary" href="report.html">Read the report</a>
+    </div>
+    <div class="stats" role="list" aria-label="Headline results">
+      <div class="stat" role="listitem">
+        <div class="value accent num" data-src="ui_meta.json#test.model.logloss" data-fmt="3">0.946</div>
+        <div class="label">test log loss<br>market <span class="num" data-src="ui_meta.json#test.market.logloss" data-fmt="3">0.949</span></div>
+      </div>
+      <div class="stat" role="listitem">
+        <div class="value num" data-src="ui_meta.json#test.model.acc" data-fmt="pct1">56.1%</div>
+        <div class="label">test accuracy<br>always-home <span class="num" data-src="ui_meta.json#test.baseline_acc" data-fmt="pct1">43.9%</span></div>
+      </div>
+      <div class="stat" role="listitem">
+        <div class="value num" data-src="ui_meta.json#holdout.model.logloss" data-fmt="3">1.019</div>
+        <div class="label">holdout log loss<br>market <span class="num" data-src="ui_meta.json#holdout.market.logloss" data-fmt="3">1.016</span></div>
+      </div>
+      <div class="stat" role="listitem">
+        <div class="value num"><span data-src="site_stats.json#rolling_origin.beats_market" data-fmt="int">5</span> / <span data-src="site_stats.json#rolling_origin.n_seasons" data-fmt="int">7</span></div>
+        <div class="label">seasons beating the market<br>rolling-origin refits</div>
+      </div>
+    </div>
+  </section>
 
-  <h2>Read</h2>
-  <ul class="cards">
-    <a class="card" href="how-it-works.html">
-      <span class="tag">the real model</span>
-      <h3>How it works</h3>
-      <p>Pre-kickoff features, the market as a prior, boosted trees, a Dixon–Coles goal grid,
-        blend and calibration — stage by stage, with the scoreboard at the end.</p>
-    </a>
-    <a class="card" href="pipeline.html">
-      <span class="tag">the gentle version</span>
-      <h3>The pipeline</h3>
-      <p>One Arsenal match → features built without leakage → the six-stage pipeline → which
-        features carry the signal → reading a confusion matrix.</p>
-    </a>
-    <a class="card" href="random-forest.html">
-      <span class="tag">plain language</span>
-      <h3>How a random forest decides</h3>
-      <p>One decision tree, the two kinds of randomness that make trees disagree, why the
-        vote beats the best single tree, and a jar-of-jelly-beans analogy.</p>
-    </a>
-    <a class="card" href="playground.html">
-      <span class="tag">environment + toys</span>
-      <h3>The blocked import, and a playground</h3>
-      <p>Why scikit-learn won't load under Windows Smart App Control, the conda-forge fix,
-        and six ML concepts as small programs you can edit and run in the page.</p>
-    </a>
-  </ul>
+  <section class="section wrap" aria-labelledby="read-h">
+    <h2 id="read-h" class="reveal">Read</h2>
+    <ul class="card-grid reveal" style="margin-top:var(--s-3)">
+      <li><a class="card" href="how-it-works.html">
+        <p class="eyebrow">The real model</p>
+        <h3>How it works</h3>
+        <p>Pre-kickoff features, the market as a prior, boosted trees, a Dixon–Coles goal grid, blend and calibration, stage by stage, with the scoreboard at the end.</p>
+      </a></li>
+      <li><a class="card" href="report.html">
+        <p class="eyebrow">Long form</p>
+        <h3>The report</h3>
+        <p>Why log loss and not accuracy, what leakage would look like here, why the market is a prior rather than a competitor, and why the draw stays hard. Printable to PDF.</p>
+      </a></li>
+      <li><a class="card" href="pipeline.html">
+        <p class="eyebrow">The gentle version</p>
+        <h3>The pipeline</h3>
+        <p>One Arsenal match, features built without leakage, the six-stage pipeline, which features carry the signal, and how to read the confusion matrix.</p>
+      </a></li>
+      <li><a class="card" href="random-forest.html">
+        <p class="eyebrow">Plain language</p>
+        <h3>How trees decide</h3>
+        <p>One decision tree, the two kinds of randomness that make trees disagree, why a vote beats the best single tree, and how boosting differs.</p>
+      </a></li>
+      <li><a class="card" href="playground.html">
+        <p class="eyebrow">Interactive</p>
+        <h3>The playground</h3>
+        <p>Six machine-learning ideas as small programs you can edit and run in the page, plus the note on why scikit-learn would not load on the build machine.</p>
+      </a></li>
+    </ul>
+  </section>
 
-  <h2>Explore</h2>
-  <ul class="cards">
-    <a class="card" href="predictions.html">
-      <span class="tag">interactive</span>
-      <h3>Predictions browser</h3>
-      <p>Every held-out match the model was never shown: its probabilities, the most likely
-        scoreline, the signals behind the pick, and whether it was right. Plus a quick
-        estimate for any matchup.</p>
-    </a>
-    <a class="card" href="https://github.com/Daytoo77/pl-outcome-predictor">
-      <span class="tag">source</span>
-      <h3>The code</h3>
-      <p>Notebooks (<code>explore</code> → <code>features</code> → <code>model</code>), the
-        shared <code>pl_model.py</code> helpers, and the trained model JSON.</p>
-    </a>
-  </ul>
+  <section class="section wrap" aria-labelledby="explore-h">
+    <h2 id="explore-h" class="reveal">Explore</h2>
+    <ul class="card-grid reveal" style="margin-top:var(--s-3)">
+      <li><a class="card" href="predictions.html">
+        <p class="eyebrow">Every held-out match</p>
+        <h3>Predictions browser</h3>
+        <p>Blind predictions for <span class="num" data-src="site_stats.json#confusion.test.n" data-fmt="int,">699</span> test and <span class="num" data-src="site_stats.json#confusion.holdout.n" data-fmt="int,">350</span> holdout matches: probabilities, the most likely scoreline, the signals behind each pick, and whether it was right. Works offline as one file.</p>
+      </a></li>
+      <li><a class="card" href="season.html">
+        <p class="eyebrow">2026-27</p>
+        <h3>Season forecasts</h3>
+        <p>The committed model's probabilities for upcoming fixtures, from a fixtures-and-odds CSV you supply. Filter by matchday or club.</p>
+      </a></li>
+      <li><a class="card" href="https://github.com/Daytoo77/pl-outcome-predictor">
+        <p class="eyebrow">Source</p>
+        <h3>The code</h3>
+        <p>Three notebooks (explore, features, model), the shared helpers, the trained model files, and the scripts that build this site.</p>
+      </a></li>
+    </ul>
+  </section>
 
+  <section class="section wrap" aria-labelledby="results-h">
+    <div class="reveal">
+      <h2 id="results-h">Results on seasons the model never trained on</h2>
+      <p class="muted" style="margin-top:var(--s-2)">Log loss is the score that matters: lower is better, and a flat one-third guess scores 1.099. The market column is the de-vigged consensus price, the hardest benchmark there is.</p>
+    </div>
+    <div class="table-card reveal">
+      <div class="scroll-x">
+        <table>
+          <caption>Held-out performance</caption>
+          <thead><tr><th>Slice</th><th>Matches</th><th>Model log loss</th><th>Market log loss</th><th>Accuracy</th><th>Always home</th></tr></thead>
+          <tbody>
+            <tr>
+              <td class="wrap-cell">Test, 2023-24 and 2024-25</td>
+              <td class="num" data-src="ui_meta.json#test.n" data-fmt="int">699</td>
+              <td class="hi num" data-src="ui_meta.json#test.model.logloss" data-fmt="3">0.946</td>
+              <td class="num" data-src="ui_meta.json#test.market.logloss" data-fmt="3">0.949</td>
+              <td class="num" data-src="ui_meta.json#test.model.acc" data-fmt="pct1">56.1%</td>
+              <td class="num" data-src="ui_meta.json#test.baseline_acc" data-fmt="pct1">43.9%</td>
+            </tr>
+            <tr>
+              <td class="wrap-cell">Holdout, 2025-26 (scored once)</td>
+              <td class="num" data-src="ui_meta.json#holdout.n" data-fmt="int">350</td>
+              <td class="num" data-src="ui_meta.json#holdout.model.logloss" data-fmt="3">1.019</td>
+              <td class="hi num" data-src="ui_meta.json#holdout.market.logloss" data-fmt="3">1.016</td>
+              <td class="num" data-src="ui_meta.json#holdout.model.acc" data-fmt="pct1">48.3%</td>
+              <td class="num" data-src="ui_meta.json#holdout.baseline_acc" data-fmt="pct1">42.0%</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <p class="prose reveal">On the freshest slice the model finished <span class="num">0.003</span> behind the closing line, a tie inside the noise. Draws are the hard class: no pre-kickoff feature correlates with a draw, so the model treats a well-calibrated draw probability as the deliverable rather than the hard label, and under argmax it called none of the <span class="num" data-src="site_stats.json#draws.test.n_drawn" data-fmt="int">163</span> drawn test matches.</p>
+  </section>
 </main>
 
-<footer>
-  <div class="wrap col">
-    <p>Draws are the hard class — no pre-kickoff feature correlates with a draw, so the model
-      treats a well-calibrated P(draw) as the deliverable rather than the hard label.</p>
-    <span class="mono">data: football-data.co.uk · FPL Core Insights — non-commercial use</span>
+<footer class="site-footer">
+  <div class="wrap">
+    <ul class="links">
+      <li><a href="how-it-works.html">How it works</a></li>
+      <li><a href="report.html">Report</a></li>
+      <li><a href="predictions.html">Predictions</a></li>
+      <li><a href="season.html">2026-27 season</a></li>
+      <li><a href="https://github.com/Daytoo77/pl-outcome-predictor">Source on GitHub</a></li>
+    </ul>
+    <p>Data: <a href="https://www.football-data.co.uk/englandm.php">football-data.co.uk</a> and FPL Core Insights, used non-commercially. Code and pages are MIT licensed; the match data is not.</p>
+    <p>Model probabilities are computed from pre-kickoff information for study purposes. They are not betting advice.</p>
   </div>
 </footer>
-
 </body>
 </html>
