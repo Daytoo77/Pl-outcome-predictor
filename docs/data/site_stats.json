@@ -1,0 +1,316 @@
+{
+ "_about": "Derived by tools/build_site_stats.py from committed artefacts; not a model output.",
+ "hfa_by_season": {
+  "2000-01": 60.0,
+  "2001-02": 82.91,
+  "2002-03": 64.74,
+  "2003-04": 69.17,
+  "2004-05": 60.65,
+  "2005-06": 68.53,
+  "2006-07": 67.58,
+  "2007-08": 73.94,
+  "2008-09": 72.66,
+  "2009-10": 66.95,
+  "2010-11": 73.3,
+  "2011-12": 78.73,
+  "2012-13": 76.17,
+  "2013-14": 62.85,
+  "2014-15": 52.51,
+  "2015-16": 53.14,
+  "2016-17": 47.22,
+  "2017-18": 54.07,
+  "2018-19": 56.57,
+  "2019-20": 60.33,
+  "2020-21": 53.45,
+  "2021-22": 30.56,
+  "2022-23": 24.73,
+  "2023-24": 30.56,
+  "2024-25": 49.4,
+  "2025-26": 45.98,
+  "2026-27": 37.63
+ },
+ "home_points_rate_by_season": {
+  "2000-01": {
+   "home_points_rate": 0.6171,
+   "n": 380
+  },
+  "2001-02": {
+   "home_points_rate": 0.5671,
+   "n": 380
+  },
+  "2002-03": {
+   "home_points_rate": 0.6105,
+   "n": 380
+  },
+  "2003-04": {
+   "home_points_rate": 0.5816,
+   "n": 380
+  },
+  "2004-05": {
+   "home_points_rate": 0.6,
+   "n": 380
+  },
+  "2005-06": {
+   "home_points_rate": 0.6066,
+   "n": 380
+  },
+  "2006-07": {
+   "home_points_rate": 0.6079,
+   "n": 380
+  },
+  "2007-08": {
+   "home_points_rate": 0.5947,
+   "n": 380
+  },
+  "2008-09": {
+   "home_points_rate": 0.5829,
+   "n": 380
+  },
+  "2009-10": {
+   "home_points_rate": 0.6342,
+   "n": 380
+  },
+  "2010-11": {
+   "home_points_rate": 0.6171,
+   "n": 380
+  },
+  "2011-12": {
+   "home_points_rate": 0.5724,
+   "n": 380
+  },
+  "2012-13": {
+   "home_points_rate": 0.5789,
+   "n": 380
+  },
+  "2013-14": {
+   "home_points_rate": 0.5737,
+   "n": 380
+  },
+  "2014-15": {
+   "home_points_rate": 0.575,
+   "n": 380
+  },
+  "2015-16": {
+   "home_points_rate": 0.5539,
+   "n": 380
+  },
+  "2016-17": {
+   "home_points_rate": 0.6026,
+   "n": 380
+  },
+  "2017-18": {
+   "home_points_rate": 0.5855,
+   "n": 380
+  },
+  "2018-19": {
+   "home_points_rate": 0.5697,
+   "n": 380
+  },
+  "2019-20": {
+   "home_points_rate": 0.5737,
+   "n": 380
+  },
+  "2020-21": {
+   "home_points_rate": 0.4882,
+   "n": 380
+  },
+  "2021-22": {
+   "home_points_rate": 0.5447,
+   "n": 380
+  },
+  "2022-23": {
+   "home_points_rate": 0.5987,
+   "n": 380
+  },
+  "2023-24": {
+   "home_points_rate": 0.5684,
+   "n": 380
+  },
+  "2024-25": {
+   "home_points_rate": 0.5303,
+   "n": 380
+  },
+  "2025-26": {
+   "home_points_rate": 0.5632,
+   "n": 380
+  },
+  "2026-27": {
+   "home_points_rate": 0.6,
+   "n": 20
+  }
+ },
+ "confusion": {
+  "test": {
+   "n": 699,
+   "labels": [
+    "H",
+    "D",
+    "A"
+   ],
+   "matrix": [
+    [
+     248,
+     0,
+     59
+    ],
+    [
+     98,
+     0,
+     65
+    ],
+    [
+     85,
+     0,
+     144
+    ]
+   ],
+   "accuracy": 0.5608,
+   "per_class": {
+    "H": {
+     "support": 307,
+     "called": 431,
+     "recall": 0.8078,
+     "precision": 0.5754
+    },
+    "D": {
+     "support": 163,
+     "called": 0,
+     "recall": 0.0,
+     "precision": null
+    },
+    "A": {
+     "support": 229,
+     "called": 268,
+     "recall": 0.6288,
+     "precision": 0.5373
+    }
+   },
+   "predicted": {
+    "H": 431,
+    "D": 0,
+    "A": 268
+   },
+   "actual": {
+    "H": 307,
+    "D": 163,
+    "A": 229
+   }
+  },
+  "holdout": {
+   "n": 350,
+   "labels": [
+    "H",
+    "D",
+    "A"
+   ],
+   "matrix": [
+    [
+     114,
+     0,
+     33
+    ],
+    [
+     54,
+     0,
+     44
+    ],
+    [
+     50,
+     0,
+     55
+    ]
+   ],
+   "accuracy": 0.4829,
+   "per_class": {
+    "H": {
+     "support": 147,
+     "called": 218,
+     "recall": 0.7755,
+     "precision": 0.5229
+    },
+    "D": {
+     "support": 98,
+     "called": 0,
+     "recall": 0.0,
+     "precision": null
+    },
+    "A": {
+     "support": 105,
+     "called": 132,
+     "recall": 0.5238,
+     "precision": 0.4167
+    }
+   },
+   "predicted": {
+    "H": 218,
+    "D": 0,
+    "A": 132
+   },
+   "actual": {
+    "H": 147,
+    "D": 98,
+    "A": 105
+   }
+  }
+ },
+ "rolling_origin": {
+  "n_seasons": 7,
+  "beats_market": 5,
+  "mean_edge": 0.0016,
+  "min_model_ll": 0.895,
+  "max_model_ll": 1.0
+ },
+ "blend_reconstructed": {
+  "holdout": {
+   "n": 350,
+   "w_clf": 0.3,
+   "w_dc": 0.7,
+   "temperature": 1.04,
+   "mean_abs_err": 2.9e-05
+  },
+  "test": {
+   "n": 699,
+   "w_clf": 0.925,
+   "w_dc": 0.075,
+   "temperature": 0.98,
+   "mean_abs_err": 3e-05
+  }
+ },
+ "committed_model_reproduction_max_abs_err": 8.7e-05,
+ "elo_top": [
+  {
+   "team": "Arsenal",
+   "elo": 1720
+  },
+  {
+   "team": "Man City",
+   "elo": 1716
+  },
+  {
+   "team": "Man United",
+   "elo": 1602
+  },
+  {
+   "team": "Liverpool",
+   "elo": 1597
+  },
+  {
+   "team": "Bournemouth",
+   "elo": 1579
+  }
+ ],
+ "elo_season": "2025-26",
+ "season_2026_27": {
+  "played_matches_in_data": 20
+ },
+ "draws": {
+  "test": {
+   "n_drawn": 163,
+   "n_called": 0
+  },
+  "holdout": {
+   "n_drawn": 98,
+   "n_called": 0
+  }
+ }
+}

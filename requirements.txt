@@ -1,0 +1,7 @@
+# Versions actually used to train and export the committed models (conda-forge, Python 3.12.14).
+numpy==2.5.2
+pandas==3.0.5
+xgboost==3.4.1
+pyarrow==25.0.0
+# Only needed to open the notebooks; predict_upcoming.py and the tools/ scripts do not use it.
+jupyterlab==4.6.3
