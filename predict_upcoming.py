@@ -33,6 +33,9 @@ import pandas as pd
 import pl_features as F
 from pl_infer import LABELS, contribs_for, load_bundle, market_proba, predict_bundle, score_grid
 
+SIGNALS_SHOWN = 6           # how many signals the site displays per fixture
+SIGNALS_POOL = 20           # how many to compute up front, so filtering market ones still leaves enough
+
 ROOT = os.path.dirname(os.path.abspath(__file__))
 DATA = os.path.join(ROOT, "data")
 DOCS_DATA = os.path.join(ROOT, "docs", "data")
@@ -125,12 +128,37 @@ def uk_zone(date):
     return "BST" if last_sunday(3) <= date.date() < last_sunday(10) else "GMT"
 
 
+def assign_matchdays(part):
+    """Round number per fixture, derived from fixture congestion rather than games_played
+    (which advances mid-round as rows are processed sequentially and so misnumbers postponed
+    or midweek-shifted fixtures). A round is a maximal run of fixture dates where no single
+    club appears twice; a new round starts as soon as a club would play twice in the current
+    one. Ties this notebook's own chronological ordering, so it stays correct even when a
+    round straddles a weekend and a midweek makeup date."""
+    round_no = 1
+    seen_this_round = set()
+    out = []
+    for _, r in part.sort_values(["Date", "match_id"]).iterrows():
+        if r.HomeTeam in seen_this_round or r.AwayTeam in seen_this_round:
+            round_no += 1
+            seen_this_round = set()
+        seen_this_round.add(r.HomeTeam)
+        seen_this_round.add(r.AwayTeam)
+        out.append(round_no)
+    return pd.Series(out, index=part.sort_values(["Date", "match_id"]).index).reindex(part.index)
+
+
 def records_for(df, bundle, season, matches_time):
     part = df[df.Season == season].sort_values(["Date", "match_id"]).reset_index(drop=True)
     if not len(part):
         return []
+    matchdays = assign_matchdays(part)
     pr = predict_bundle(bundle, part)
-    ctr = contribs_for(bundle["clf"], part, bundle["feats"])
+    # Ask for a deep pool of contributions so that, on a fixture with no bookmaker price, we can
+    # drop the market-derived ones (XGBoost still routes NaN market features down a learned
+    # default branch and reports a nonzero contribution for that routing, which is not a real
+    # market signal) and still have enough left to show.
+    ctr_pool = contribs_for(bundle["clf"], part, bundle["feats"], top=SIGNALS_POOL)
     mkt = market_proba(part, "p")
     out = []
     for i, r in part.iterrows():
@@ -140,12 +168,18 @@ def records_for(df, bundle, season, matches_time):
         gp_h = int(r.home_games_played) if pd.notna(r.home_games_played) else 0
         gp_a = int(r.away_games_played) if pd.notna(r.away_games_played) else 0
         has_odds = bool(np.isfinite(r[["mkt_H", "mkt_D", "mkt_A"]].to_numpy(float)).all())
+        row_signals = ctr_pool[i]
+        if not has_odds:
+            # no real market prices on this row, so drop signals whose feature is NaN here:
+            # their contribution is XGBoost's learned "missing value" routing, not a market read
+            row_signals = [s for s in row_signals if pd.notna(r.get(s["feat"]))]
+        row_signals = row_signals[:SIGNALS_SHOWN]
         time = matches_time.get((r.Date, r.HomeTeam, r.AwayTeam)) or (r.Time if "Time" in part.columns and isinstance(r.Time, str) else None)
         out.append({
             "id": int(r.match_id),
             "date": r.Date.strftime("%Y-%m-%d"),
             "time": time, "tz": uk_zone(r.Date),
-            "matchday": max(gp_h, gp_a) + 1,
+            "matchday": int(matchdays.loc[i]),
             "home": r.HomeTeam, "away": r.AwayTeam,
             "played": bool(played),
             "actual": (r.FTR if played else None),
@@ -159,7 +193,7 @@ def records_for(df, bundle, season, matches_time):
             "xg": {"home": round(float(pr["lam"][i]), 2), "away": round(float(pr["mu"][i]), 2)},
             "elo": {"home": round(float(r.home_elo_pre)), "away": round(float(r.away_elo_pre))},
             "grid": score_grid(float(pr["lam"][i]), float(pr["mu"][i]), bundle["rho"]),
-            "signals": ctr[i],
+            "signals": row_signals,
             "games_played": {"home": gp_h, "away": gp_a},
             "cold_start": bool(min(gp_h, gp_a) < COLD_START_GAMES),
             "correct": (bool(pick == r.FTR) if played else None),

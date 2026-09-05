@@ -27,6 +27,7 @@
 <link rel="stylesheet" href="assets/css/components.css">
 <script>(function(){try{var t=localStorage.getItem('pl-theme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t);var q=/[?&]theme=(light|dark)\b/.exec(location.search);if(q)document.documentElement.setAttribute('data-theme',q[1])}catch(e){}document.documentElement.classList.add('js')})()</script>
 <script src="assets/js/site.js" defer></script>
+<script src="assets/js/team-badges.js" defer></script>
 <!-- Written by predict_upcoming.py alongside docs/data/upcoming.json; a script tag so a file:// clone works too. -->
 <script src="data/upcoming.js" defer></script>
 <style>
@@ -36,7 +37,8 @@
   @media (min-width: 900px) { .fx-grid { grid-template-columns: 1fr 1fr; } }
   .fx { padding: var(--s-3); display: flex; flex-direction: column; gap: var(--s-2); }
   .fx-top { display: flex; justify-content: space-between; align-items: center; gap: var(--s-2); flex-wrap: wrap; font-size: var(--fs-xs); color: var(--ink-2); }
-  .fx-teams { font-family: var(--font-display); font-size: var(--fs-lg); font-weight: 600; letter-spacing: -0.01em; line-height: 1.2; margin: 0; }
+  .fx-teams { font-family: var(--font-display); font-size: var(--fs-lg); font-weight: 600; letter-spacing: -0.01em; line-height: 1.2; margin: 0; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .fx-teams svg { flex: none; vertical-align: middle; }
   .fx-teams .vs { color: var(--ink-2); font-weight: 400; margin: 0 var(--s-1); }
   .fx-row { display: flex; flex-wrap: wrap; gap: var(--s-1) var(--s-2); align-items: center; font-size: var(--fs-sm); }
   .fx-signals { list-style: none; padding: 0; margin: 0; display: grid; gap: 6px; font-size: var(--fs-sm); }
@@ -235,15 +237,13 @@ git add docs/data/upcoming.json docs/data/upcoming.js</code></pre>
       var top = f.grid && f.grid.top && f.grid.top[0];
       var h = '<article class="fx panel" aria-label="' + esc(f.home) + ' v ' + esc(f.away) + '">';
       h += '<div class="fx-top"><span>' + when(f) + '</span><span class="tag tag-neutral">Matchday ' + f.matchday + '</span></div>';
-      h += '<h3 class="fx-teams">' + esc(f.home) + '<span class="vs">v</span>' + esc(f.away) + '</h3>';
+      h += '<h3 class="fx-teams">' + PL.badgeHTML(f.home, 22) + ' ' + esc(f.home) + '<span class="vs">v</span>' + PL.badgeHTML(f.away, 22) + ' ' + esc(f.away) + '</h3>';
       h += probBar(f);
       h += '<div class="fx-row"><span class="tag">' + L[f.pred] + ' · ' + pct(f.proba[f.pred]) + '</span>' +
         (top ? '<span class="muted">most likely score <b>' + top.h + '–' + top.a + '</b> (' + pct(top.p) + ')</span>' : '') + '</div>';
       if (f.market) {
         h += '<div class="fx-row muted small"><span>market, vig-free: ' + pct(f.market.H) + ' / ' + pct(f.market.D) + ' / ' + pct(f.market.A) + '</span>' +
           (f.odds ? '<span>quoted ' + f.odds.H + ' · ' + f.odds.D + ' · ' + f.odds.A + '</span>' : '') + '</div>';
-      } else {
-        h += '<div class="fx-row muted small">no bookmaker price supplied: the market prior is flat</div>';
       }
       if (f.signals && f.signals.length) {
         h += '<div><div class="lbl" style="margin-bottom:6px">Strongest signals</div><ul class="fx-signals">' + f.signals.slice(0, 3).map(function (s) {
@@ -252,6 +252,7 @@ git add docs/data/upcoming.json docs/data/upcoming.js</code></pre>
         }).join('') + '</ul></div>';
       }
       var flags = [];
+      if (!f.market) flags.push('<span class="tag tag-warn" title="No bookmaker price was supplied for this fixture, so the market prior (worth about a quarter of the model\'s signal) is flat instead of informative. Treat this forecast as noticeably weaker than one with a real price.">no market price: prior is flat</span>');
       if (f.cold_start) flags.push('<span class="tag tag-neutral" title="Either club has fewer than ' + data.cold_start_games + ' games this season; form features are incomplete">early season: form features incomplete</span>');
       if (flags.length) h += '<div class="fx-row">' + flags.join('') + '</div>';
       if (f.played) {

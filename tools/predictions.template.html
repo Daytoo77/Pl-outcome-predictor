@@ -42,7 +42,8 @@
   .list-scroll { max-height: 70vh; overflow-y: auto; }
   .list-row:last-child { border-bottom: 0; }
   .fx-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--s-2); flex-wrap: wrap; }
-  .fx-teams { font-family: var(--font-display); font-size: var(--fs-xl); font-weight: 600; letter-spacing: -0.015em; line-height: 1.15; }
+  .fx-teams { font-family: var(--font-display); font-size: var(--fs-xl); font-weight: 600; letter-spacing: -0.015em; line-height: 1.15; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .fx-teams svg { flex: none; vertical-align: middle; }
   .fx-teams .vs { color: var(--ink-2); font-weight: 400; margin: 0 var(--s-1); }
   .fx-sub { font-size: var(--fs-xs); color: var(--ink-2); margin-top: var(--s-h); }
   .verdict { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-1) var(--s-2); margin: var(--s-3) 0; padding: var(--s-2) var(--s-3); background: var(--bg); border-radius: var(--r-md); }
@@ -164,6 +165,9 @@
 /*__SITE_JS__*/
 </script>
 <script>
+/*__BADGES_JS__*/
+</script>
+<script>
 (function () {
   'use strict';
   var PRED = JSON.parse(document.getElementById('DATA-predictions').textContent);
@@ -254,7 +258,7 @@
       b.setAttribute('aria-current', m === state.sel ? 'true' : 'false');
       var mark = m.correct === true ? '<span class="hit" aria-label="called it">✓</span> ' : m.correct === false ? '<span class="miss" aria-label="missed">✗</span> ' : '';
       b.innerHTML =
-        '<span class="teams">' + mark + esc(m.home) + ' <span class="muted" style="font-weight:400">v</span> ' + esc(m.away) + '</span>' +
+        '<span class="teams">' + mark + PL.badgeHTML(m.home, 16) + ' ' + esc(m.home) + ' <span class="muted" style="font-weight:400">v</span> ' + PL.badgeHTML(m.away, 16) + ' ' + esc(m.away) + '</span>' +
         '<span class="meta"><span>' + m.date + '</span><span>pick ' + m.pred + '</span>' +
         (m.played ? '<span>' + m.score[0] + '–' + m.score[1] + '</span>' : '') + '</span>';
       b.addEventListener('click', function () { state.sel = m; render(); });
@@ -333,7 +337,7 @@
     CUR.home = m.home; CUR.away = m.away;
     var p = m.proba, pick = m.pred;
     var h = '<article class="panel panel-body">';
-    h += '<div class="fx-head"><div><h2 class="fx-teams">' + esc(m.home) + '<span class="vs">v</span>' + esc(m.away) + '</h2>' +
+    h += '<div class="fx-head"><div><h2 class="fx-teams">' + PL.badgeHTML(m.home, 26) + ' ' + esc(m.home) + '<span class="vs">v</span>' + PL.badgeHTML(m.away, 26) + ' ' + esc(m.away) + '</h2>' +
       '<div class="fx-sub">' + m.date + (m.round ? ' · matchday ' + m.round : '') + ' · ' + m.season + '</div></div>' +
       '<span class="tag tag-neutral">model blind to ' + m.season + '</span></div>';
     h += '<div style="margin-top:var(--s-3)">' + probBar(p, pick) + '</div>';

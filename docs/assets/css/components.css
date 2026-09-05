@@ -185,6 +185,9 @@ select.field { appearance: none; -webkit-appearance: none; padding-right: 36px;
 .tag { display: inline-flex; align-items: center; gap: 6px; min-height: 28px; padding: 0 10px; border-radius: var(--r-pill); font-size: var(--fs-xs); font-weight: 600; background: var(--accent-soft); color: var(--accent); white-space: nowrap; }
 .tag-neutral { background: var(--line-soft); color: var(--ink-2); }
 .tag-solid { background: var(--ink); color: var(--bg); }
+/* not a second accent colour: a bordered, higher-contrast treatment of the same ink tones,
+   used only to flag missing/degraded input data (e.g. no market price supplied) */
+.tag-warn { background: var(--bg-elev); color: var(--ink); border: 1.5px dashed var(--ink-3); }
 
 /* ---------- segmented probability bar ---------- */
 .prob { display: flex; height: 44px; border-radius: var(--r-sm); overflow: hidden; }
@@ -211,7 +214,8 @@ select.field { appearance: none; -webkit-appearance: none; padding-right: 36px;
 }
 .list-row:hover { background: var(--accent-soft); }
 .list-row[aria-current="true"] { background: var(--accent-soft); box-shadow: inset 3px 0 0 var(--accent); }
-.list-row .teams { font-weight: 600; font-size: var(--fs-sm); }
+.list-row .teams { font-weight: 600; font-size: var(--fs-sm); display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.list-row .teams svg { flex: none; vertical-align: middle; }
 .list-row .meta { font-size: var(--fs-xs); color: var(--ink-2); display: flex; gap: var(--s-1); flex-wrap: wrap; }
 .empty { text-align: center; padding: var(--s-8) var(--s-3); color: var(--ink-2); }
 .empty h2 { margin-bottom: var(--s-2); }

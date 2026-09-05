@@ -494,7 +494,15 @@ def add_market(matches, fit_max_season=MARKET_FIT_MAX_SEASON):
     pw = (1.0 / o[ok].to_numpy(float)) ** gamma
     matches.loc[ok, ["mkt_pow_H", "mkt_pow_D", "mkt_pow_A"]] = pw / pw.sum(axis=1, keepdims=True)
 
-    matches["mkt_overround"] = (1.0 / o).sum(axis=1) - 1.0
+    # NOTE: (1/o).sum(axis=1) silently skips NaN, so an all-missing odds row would read -1.0
+    # here instead of NaN if not masked. This masking was added after the committed model
+    # (models/xgb_clf.json) was trained; that model's 2000-01 and 2001-02 rows (760 of 9,900,
+    # all missing 1X2 odds) were trained with mkt_overround = -1.0 rather than missing. Fixing
+    # it would change the committed model's numbers, which the project does not retrain to
+    # preserve; see docs/report.html's limitations section. This mask only prevents the same
+    # defect from reaching any future retrain or fixture scored by predict_upcoming.py.
+    matches["mkt_overround"] = pd.Series(np.nan, index=matches.index)
+    matches.loc[ok, "mkt_overround"] = (1.0 / o[ok]).sum(axis=1) - 1.0
     matches["mkt_supremacy"] = matches.mkt_p_H - matches.mkt_p_A
     p3 = matches[["mkt_p_H", "mkt_p_D", "mkt_p_A"]].clip(1e-9)
     matches["mkt_entropy"] = -(p3 * np.log(p3)).sum(axis=1)

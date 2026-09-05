@@ -37,6 +37,7 @@ def main():
         "/*__BASE_CSS__*/": read(os.path.join(DOCS, "assets", "css", "base.css")),
         "/*__COMPONENTS_CSS__*/": read(os.path.join(DOCS, "assets", "css", "components.css")),
         "/*__SITE_JS__*/": read(os.path.join(DOCS, "assets", "js", "site.js")),
+        "/*__BADGES_JS__*/": read(os.path.join(DOCS, "assets", "js", "team-badges.js")),
         "__PREDICTIONS_JSON__": json_for_script(os.path.join(ROOT, "data", "ui_predictions.json")),
         "__META_JSON__": json_for_script(os.path.join(ROOT, "data", "ui_meta.json")),
     }
