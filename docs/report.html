@@ -1,0 +1,716 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Report · PL outcome model</title>
+<meta name="description" content="The full explainer for the Premier League outcome model: the problem, why log loss, leakage and how the features avoid it, the market as a prior, XGBoost's base margin, Dixon–Coles, the blend, calibration, results and limitations.">
+<link rel="canonical" href="https://daytoo77.github.io/pl-outcome-predictor/report.html">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#f5f5f7">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#000000">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Premier League outcome model">
+<meta property="og:title" content="Premier League outcome model: the report">
+<meta property="og:description" content="Problem statement, why log loss, leakage, the market as a prior, base margin, Dixon–Coles, the blend, calibration, results and limitations.">
+<meta property="og:url" content="https://daytoo77.github.io/pl-outcome-predictor/report.html">
+<meta property="og:image" content="https://daytoo77.github.io/pl-outcome-predictor/assets/og/preview.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Premier League outcome model: test log loss 0.946 against the market's 0.949.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Premier League outcome model: the report">
+<meta name="twitter:description" content="Problem statement, why log loss, leakage, the market as a prior, base margin, Dixon–Coles, the blend, calibration, results and limitations.">
+<meta name="twitter:image" content="https://daytoo77.github.io/pl-outcome-predictor/assets/og/preview.png">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<link rel="stylesheet" href="assets/css/base.css">
+<link rel="stylesheet" href="assets/css/components.css">
+<script>(function(){try{var t=localStorage.getItem('pl-theme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t);var q=/[?&]theme=(light|dark)\b/.exec(location.search);if(q)document.documentElement.setAttribute('data-theme',q[1])}catch(e){}document.documentElement.classList.add('js')})()</script>
+<script src="assets/js/site.js" defer></script>
+<style>
+  .report-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s-6); align-items: start; }
+  .report-layout > * { min-width: 0; }
+  @media (min-width: 1024px) {
+    .report-layout { grid-template-columns: 232px minmax(0, 1fr); }
+    .toc { position: sticky; top: calc(var(--nav-h) + var(--s-3)); max-height: calc(100vh - var(--nav-h) - var(--s-6)); overflow: auto; }
+  }
+  .toc { background: var(--bg-elev); border-radius: var(--r-lg); box-shadow: var(--shadow-1); padding: var(--s-2); }
+  .toc .eyebrow { margin: var(--s-1) 12px var(--s-1); }
+  .toc-list a .n { font-family: var(--mono); color: var(--accent); margin-right: 8px; min-width: 1.6em; }
+  .chapter { padding: var(--s-6) 0 var(--s-2); }
+  .chapter + .chapter { border-top: 1px solid var(--line-soft); }
+  .chapter h2 { display: flex; gap: var(--s-2); align-items: baseline; margin-bottom: var(--s-3); }
+  .chapter h2 .n { font-family: var(--mono); font-size: var(--fs-md); color: var(--accent); font-weight: 600; flex: none; }
+  .chapter h3 { margin: var(--s-4) 0 var(--s-2); }
+  .chapter p, .chapter li { max-width: var(--measure); }
+  .formula { font-family: Georgia, "Times New Roman", serif; font-size: var(--fs-lg); line-height: 1.5; padding: var(--s-2) var(--s-3); margin: var(--s-3) 0; background: var(--bg-elev); border-radius: var(--r-md); box-shadow: var(--shadow-1); overflow-x: auto; white-space: nowrap; max-width: min(100%, var(--measure)); }
+  .formula var { font-style: italic; }
+  .formula .op { color: var(--ink-2); padding: 0 0.15em; }
+  .formula .where { display: block; font-family: var(--font); font-size: var(--fs-sm); color: var(--ink-2); margin-top: var(--s-1); white-space: normal; }
+  .figure { max-width: 60rem; }
+  .sm-table td, .sm-table th { padding: 8px 10px; font-size: var(--fs-xs); }
+  .cm-row { display: grid; grid-template-columns: 1fr; gap: var(--s-3); }
+  @media (min-width: 700px) { .cm-row { grid-template-columns: 1fr 1fr; } }
+  .print-only { display: none; }
+  .print-head { display: none; }
+  .meta-line { color: var(--ink-2); font-size: var(--fs-sm); margin-top: var(--s-2); }
+  .print-hint { margin: var(--s-3) 0 0; }
+  @media print {
+    body { font-size: 10.5pt; line-height: 1.42; counter-reset: ref; }
+    .site-nav, .skip, .theme-toggle, .nav-menu, .site-footer, .toc, .no-print, .print-hint { display: none !important; }
+    .report-layout { display: block; }
+    .hero { padding-top: 0; padding-bottom: var(--s-4); }
+    .print-head { display: block; font-size: 9pt; color: var(--ink-2); border-bottom: 1px solid var(--line); padding-bottom: 6px; margin-bottom: var(--s-3); }
+    .chapter { padding: var(--s-4) 0 var(--s-2); }
+    .chapter + .chapter { border-top: 0; }
+    .chapter h2 { break-before: auto; }
+    #s13 { break-before: page; }
+    h2, h3 { break-after: avoid; }
+    .figure, table, .formula, .stat, .table-card { break-inside: avoid; box-shadow: none; border: 1px solid var(--line); }
+    .formula { white-space: normal; }
+    a { color: var(--ink); text-decoration: none; }
+    a[href^="http"] { counter-increment: ref; }
+    a[href^="http"]::after { content: " [" counter(ref) "]"; font-size: 0.8em; color: var(--ink-2); word-break: normal; }
+    .print-only { display: block; }
+    .print-only ol { padding-left: 1.4em; }
+    .print-only li { max-width: none; word-break: break-all; font-size: 9pt; }
+    @page { size: A4; margin: 18mm 16mm 20mm; }
+  }
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="site-nav">
+  <div class="wrap">
+    <a class="wordmark" href="index.html">
+      <svg viewBox="0 0 64 64" aria-hidden="true" focusable="false"><rect class="mark-bg" width="64" height="64" rx="14"/><rect class="mark-fg" x="12" y="18" width="26" height="9" rx="3"/><rect class="mark-fg" x="41" y="18" width="11" height="9" rx="3" opacity="0.55"/><rect class="mark-fg" x="12" y="37" width="15" height="9" rx="3"/><rect class="mark-fg" x="30" y="37" width="22" height="9" rx="3" opacity="0.55"/></svg>
+      PL outcome model
+    </a>
+    <nav aria-label="Site">
+      <ul class="nav-links" id="nav-links">
+        <li><a href="index.html">Overview</a></li>
+        <li><a href="how-it-works.html">How it works</a></li>
+        <li><a href="pipeline.html">Pipeline</a></li>
+        <li><a href="random-forest.html">Trees</a></li>
+        <li><a href="playground.html">Playground</a></li>
+        <li><a href="predictions.html">Predictions</a></li>
+        <li><a href="season.html">Season</a></li>
+        <li><a href="report.html" aria-current="page">Report</a></li>
+      </ul>
+    </nav>
+    <button class="icon-btn nav-menu" type="button" data-nav-toggle aria-expanded="false" aria-controls="nav-links" aria-label="Menu">
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 7h16M4 12h16M4 17h16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+    </button>
+    <button class="icon-btn theme-toggle" type="button" data-theme-toggle data-state="system" aria-label="Theme: system. Switch to light.">
+      <svg class="i-system" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/></svg>
+      <svg class="i-light" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      <svg class="i-dark" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a7 7 0 1 0 10.5 10.5z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+    </button>
+  </div>
+</header>
+
+<main id="main" class="wrap">
+  <p class="print-head">Premier League match-outcome model · project report · https://daytoo77.github.io/pl-outcome-predictor/report.html</p>
+  <section class="hero" style="padding-bottom:var(--s-4)">
+    <p class="eyebrow">Project report</p>
+    <h1>Premier League match-outcome model</h1>
+    <p class="lede">Three-class (home / draw / away) match prediction from 25 seasons of results and pre-season squad values: gradient-boosted trees that start from the bookmaker's price, blended with a Dixon–Coles goals model, and judged by log loss against the market itself.</p>
+    <p class="meta-line">Every number below is read from a committed artefact of the repository (the model config, the exported predictions and metrics, the ablation file, or statistics derived from the raw season files by a script). Section 15 lists which.</p>
+    <p class="print-hint muted small">Press <kbd>Ctrl</kbd> / <kbd>⌘</kbd> + <kbd>P</kbd> and choose "Save as PDF" for a paginated copy; a pre-rendered <a href="report.pdf">report.pdf</a> is also in the repository.</p>
+  </section>
+
+  <div class="report-layout">
+    <aside class="toc" aria-label="Contents">
+      <p class="eyebrow">Contents</p>
+      <ol class="toc-list">
+        <li><a href="#s1"><span class="n">1</span>Summary</a></li>
+        <li><a href="#s2"><span class="n">2</span>The problem</a></li>
+        <li><a href="#s3"><span class="n">3</span>Why log loss, not accuracy</a></li>
+        <li><a href="#s4"><span class="n">4</span>Data</a></li>
+        <li><a href="#s5"><span class="n">5</span>Leakage, and the rule that prevents it</a></li>
+        <li><a href="#s6"><span class="n">6</span>Features</a></li>
+        <li><a href="#s7"><span class="n">7</span>The market as a prior</a></li>
+        <li><a href="#s8"><span class="n">8</span>Model A: boosted trees on top of the prior</a></li>
+        <li><a href="#s9"><span class="n">9</span>Model B: Dixon–Coles goals</a></li>
+        <li><a href="#s10"><span class="n">10</span>The blend</a></li>
+        <li><a href="#s11"><span class="n">11</span>Calibration, and why the draw stays hard</a></li>
+        <li><a href="#s12"><span class="n">12</span>Evaluation method</a></li>
+        <li><a href="#s13"><span class="n">13</span>Results</a></li>
+        <li><a href="#s14"><span class="n">14</span>Limitations and next steps</a></li>
+        <li><a href="#s15"><span class="n">15</span>Provenance</a></li>
+      </ol>
+    </aside>
+
+    <div class="report-body">
+
+      <!-- 1 -->
+      <section class="chapter first" id="s1" aria-labelledby="h1-1">
+        <h2 id="h1-1"><span class="n">1</span>Summary</h2>
+        <p>The model predicts the full-time result of a Premier League match, home win (H), draw (D) or away win (A), using only information available before kickoff. On the <b>test</b> split (2023-24 and 2024-25, <span class="num" data-src="ui_meta.json#test.n" data-fmt="int">699</span> matches) it reaches <span class="num" data-src="ui_meta.json#test.model.acc" data-fmt="pct1">56.1%</span> accuracy against a <span class="num" data-src="ui_meta.json#test.baseline_acc" data-fmt="pct1">43.9%</span> always-home baseline, with a log loss of <span class="num" data-src="ui_meta.json#test.model.logloss" data-fmt="3">0.946</span> against the de-vigged bookmaker line's <span class="num" data-src="ui_meta.json#test.market.logloss" data-fmt="3">0.949</span>. On the <b>holdout</b> split (2025-26, <span class="num" data-src="ui_meta.json#holdout.n" data-fmt="int">350</span> matches, evaluated once) accuracy is <span class="num" data-src="ui_meta.json#holdout.model.acc" data-fmt="pct1">48.3%</span> against <span class="num" data-src="ui_meta.json#holdout.baseline_acc" data-fmt="pct1">42.0%</span>, but log loss is <span class="num" data-src="ui_meta.json#holdout.model.logloss" data-fmt="3">1.019</span> against the market's <span class="num" data-src="ui_meta.json#holdout.market.logloss" data-fmt="3">1.016</span>: marginally behind the price.</p>
+        <p>The honest reading is that the model matches a settled market out of sample rather than beating it. Its dominant limitation is that under argmax it <b>never predicts a draw</b>: draw recall is <span class="num" data-src="site_stats.json#confusion.test.per_class.D.recall" data-fmt="pct1">0.0%</span> on test (<span class="num" data-src="site_stats.json#draws.test.n_drawn" data-fmt="int">163</span> drawn matches) and on holdout (<span class="num" data-src="site_stats.json#draws.holdout.n_drawn" data-fmt="int">98</span>), so all of its accuracy comes from separating home wins from away wins. Sections 3 and 11 explain why that is expected for a model judged on probabilities, and what it costs.</p>
+        <div class="stats">
+          <div class="stat"><div class="value accent num" data-src="ui_meta.json#test.model.logloss" data-fmt="3">0.946</div><div class="label">test log loss · market <span data-src="ui_meta.json#test.market.logloss" data-fmt="3">0.949</span></div></div>
+          <div class="stat"><div class="value num" data-src="ui_meta.json#holdout.model.logloss" data-fmt="3">1.019</div><div class="label">holdout log loss · market <span data-src="ui_meta.json#holdout.market.logloss" data-fmt="3">1.016</span></div></div>
+          <div class="stat"><div class="value num" data-src="ui_meta.json#test.model.acc" data-fmt="pct1">56.1%</div><div class="label">test accuracy · always-home <span data-src="ui_meta.json#test.baseline_acc" data-fmt="pct1">43.9%</span></div></div>
+          <div class="stat"><div class="value num" data-src="site_stats.json#confusion.test.per_class.D.recall" data-fmt="pct1">0.0%</div><div class="label">draw recall, test and holdout</div></div>
+        </div>
+      </section>
+
+      <!-- 2 -->
+      <section class="chapter" id="s2" aria-labelledby="h2-2">
+        <h2 id="h2-2"><span class="n">2</span>The problem</h2>
+        <p>Match prediction is a three-class problem in which one class has almost no distinct signal.</p>
+        <p>Across the <span class="num" data-src="ui_meta.json#total_matches" data-fmt="int,">9,074</span> matches in the filtered dataset the outcome mix is <span class="num" data-src="viz_stats.json#outcome_dist.H" data-fmt="pct1">46.0%</span> home, <span class="num" data-src="viz_stats.json#outcome_dist.D" data-fmt="pct1">24.7%</span> draw, <span class="num" data-src="viz_stats.json#outcome_dist.A" data-fmt="pct1">29.3%</span> away, so predicting "home" every time scores about 46% for free. In the evaluation windows the home share is lower, <span class="num" data-src="ui_meta.json#test.baseline_acc" data-fmt="pct1">43.9%</span> on test and <span class="num" data-src="ui_meta.json#holdout.baseline_acc" data-fmt="pct1">42.0%</span> on holdout, but the baseline is high enough that accuracy alone is a weak measure of skill.</p>
+        <p>Draws are structurally harder than the other two classes. A draw is not a strategy a team executes; it is what happens when two low scoring rates collide and produce 0–0 or 1–1. It has no feature signature of its own: it occupies the region between "home is stronger" and "away is stronger", exactly where the outcome is least determined. Section 6 shows this directly: the correlation of every pre-kickoff feature with a draw sits between −0.05 and +0.05. A classifier minimising log loss will rationally hold the draw probability near its base rate and almost never make it the largest of three.</p>
+        <p>The real benchmark is the bookmaker. A de-vigged consensus 1X2 price aggregates every model, injury report and stake in the market; it scores <span class="num" data-src="ui_meta.json#test.market.logloss" data-fmt="3">0.949</span> log loss on test and <span class="num" data-src="ui_meta.json#holdout.market.logloss" data-fmt="3">1.016</span> on holdout. Beating always-home is easy; beating the closing line is the actual test, and this project does not clearly pass it. What it does show is how close a small, leak-free model built from public statistics can get, and where the remaining gap sits.</p>
+        <figure class="figure">
+          <div class="scroll-x">
+            <svg class="dia" viewBox="0 0 960 250" width="960" height="250" style="min-width:700px" role="img" aria-labelledby="f1-t" aria-describedby="f1-d">
+              <title id="f1-t">Figure 1. The pipeline</title>
+              <desc id="f1-d">Season files flow into cleaning, then feature engineering, then a chronological split. Two models run in parallel: A, boosted trees starting from the market prior, and B, two Poisson goal models through a Dixon-Coles grid. They are blended with weight w, temperature-scaled, and produce P(H), P(D), P(A).</desc>
+              <defs><marker id="f1a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="var(--ink-2)"/></marker></defs>
+              <g text-anchor="middle">
+                <rect class="stroke" x="16" y="90" width="130" height="64" rx="12" stroke-width="1.5"/><text x="81" y="118" class="b">27 season files</text><text x="81" y="138" class="dim mono">football-data.co.uk</text>
+                <rect class="stroke" x="176" y="90" width="110" height="64" rx="12" stroke-width="1.5"/><text x="231" y="118" class="b">clean</text><text x="231" y="138" class="dim mono">one odds schema</text>
+                <rect class="stroke-acc fill-soft" x="316" y="82" width="140" height="80" rx="12" stroke-width="2"/><text x="386" y="112" class="b acc">features</text><text x="386" y="130" class="dim mono">78 columns,</text><text x="386" y="146" class="dim mono">all shift(1)</text>
+                <rect class="stroke" x="486" y="90" width="110" height="64" rx="12" stroke-width="1.5"/><text x="541" y="118" class="b">split</text><text x="541" y="138" class="dim mono">by season</text>
+                <rect class="stroke" x="626" y="24" width="150" height="64" rx="12" stroke-width="1.5"/><text x="701" y="48" class="b">A · boosted trees</text><text x="701" y="68" class="dim mono">start from market prior</text>
+                <rect class="stroke" x="626" y="158" width="150" height="64" rx="12" stroke-width="1.5"/><text x="701" y="182" class="b">B · Poisson goals</text><text x="701" y="202" class="dim mono">→ Dixon–Coles grid</text>
+                <rect class="stroke-acc fill-soft" x="806" y="90" width="138" height="64" rx="12" stroke-width="2"/><text x="875" y="112" class="b acc">w·A + (1−w)·B</text><text x="875" y="130" class="dim mono">temperature T</text><text x="875" y="146" class="dim mono">→ P(H), P(D), P(A)</text>
+              </g>
+              <g stroke="var(--ink-2)" stroke-width="1.5" fill="none">
+                <line x1="146" y1="122" x2="172" y2="122" marker-end="url(#f1a)"/>
+                <line x1="286" y1="122" x2="312" y2="122" marker-end="url(#f1a)"/>
+                <line x1="456" y1="122" x2="482" y2="122" marker-end="url(#f1a)"/>
+                <path d="M596 122 C610 122 610 56 622 56" marker-end="url(#f1a)"/>
+                <path d="M596 122 C610 122 610 190 622 190" marker-end="url(#f1a)"/>
+                <path d="M776 56 C790 56 790 122 802 122" marker-end="url(#f1a)"/>
+                <path d="M776 190 C790 190 790 122 802 122" marker-end="url(#f1a)"/>
+              </g>
+              <text x="480" y="238" class="dim" text-anchor="middle">Every meta-parameter (early stopping, w, ρ, T) is tuned on the season block that precedes the one being scored.</text>
+            </svg>
+          </div>
+          <figcaption><span class="fig-label">Figure 1</span><b>The pipeline.</b> Cleaning collapses 25 years of changing bookmaker columns into one schema; feature engineering turns each match into <span class="num" data-src="ui_meta.json#n_features" data-fmt="int">78</span> pre-kickoff differences; two models see the same features and are combined at the end.</figcaption>
+        </figure>
+      </section>
+
+      <!-- 3 -->
+      <section class="chapter" id="s3" aria-labelledby="h2-3">
+        <h2 id="h2-3"><span class="n">3</span>Why log loss, not accuracy</h2>
+        <p>Accuracy asks one question: was the most likely class the one that happened? For a three-way outcome with a 46% base rate that question is nearly uninformative, and it is blind to everything the model actually produces. A model that says 51/24/25 and a model that says 90/5/5 both "predict home"; if the match is drawn, accuracy punishes them equally, though the second was far more wrong.</p>
+        <p>Log loss grades the probability the model assigned to what actually happened:</p>
+        <div class="formula">LL <span class="op">=</span> −<span class="op">(</span>1<span class="op">/</span><var>N</var><span class="op">)</span> Σ<sub><var>i</var></sub> log <var>p</var><sub><var>i</var></sub>(<var>y</var><sub><var>i</var></sub>)<span class="where">where <var>p</var><sub><var>i</var></sub>(<var>y</var><sub><var>i</var></sub>) is the probability the model gave to the outcome that occurred in match <var>i</var>. Confident and right costs almost nothing; confident and wrong is punished hard. A flat one-third guess scores log 3 = 1.099.</span></div>
+        <p>Three consequences drive the design. First, log loss is a <em>proper scoring rule</em>: the way to minimise it is to report your true belief, so it rewards honest probabilities and makes calibration (section 11) a first-class concern rather than an afterthought. Second, it puts the model and the bookmaker on the same scale: the market publishes probabilities, not labels, and the only fair comparison is probability against probability. Third, it changes what "handling the draw" means. A calibrated 28% draw probability on a tight match is <em>credit</em> under log loss even though the argmax still says home; under accuracy that same probability is invisible. The project therefore treats a well-calibrated P(draw) as the deliverable and reports the argmax accuracy as a secondary, coarser view.</p>
+        <p>The ranked probability score is reported alongside as a check that respects the ordering H, D, A; it tells the same story (section 13).</p>
+      </section>
+
+      <!-- 4 -->
+      <section class="chapter" id="s4" aria-labelledby="h2-4">
+        <h2 id="h2-4"><span class="n">4</span>Data</h2>
+        <p><b>Source.</b> <a href="https://www.football-data.co.uk/englandm.php">football-data.co.uk</a> season files, 2000-01 through 2026-27. Seasons before 2000-01 carry no shot, corner or card columns, so a statistics-based model cannot use them.</p>
+        <p><b>Volume.</b> <span class="num" data-src="site_stats.json#splits.raw_total" data-fmt="int,">9,900</span> matches with a result parse from the files. Rows where either team has fewer than three prior matches in the current season are dropped, since cold-start rows have no meaningful form; <span class="num" data-src="site_stats.json#splits.dropped_cold_start" data-fmt="int">826</span> go, including every opening fixture of every season, and <span class="num" data-src="site_stats.json#splits.kept_total" data-fmt="int,">9,074</span> remain.</p>
+        <p><b>Kept per match:</b> date, both teams, full-time goals and result, and the twelve match-statistic columns (shots, shots on target, corners, fouls, yellows, reds, per side). Real expected goals exist only in the 2026-27 file and are used where present.</p>
+        <p><b>Dropped, and why.</b> The half-time result occurs after kickoff and cannot be an input to its own match. The referee is noise for outcome prediction. The forty-odd raw bookmaker columns change provider and name every few seasons; rather than feed the model a sparse matrix of era-specific columns, they are collapsed into one stable schema, taking the first fully populated provider group per row: a consensus 1X2 price, an over/under 2.5 price, and a separate closing 1X2 price with Pinnacle preferred.</p>
+        <p><b>Supplementary source.</b> Per-season Fantasy Premier League rosters and gameweek-1 price snapshots from <a href="https://github.com/olbauday/FPL-Core-Insights">FPL Core Insights</a>. This data begins at 2024-25, so squad features are missing for every earlier season; XGBoost routes missing values natively, so the sparse coverage costs nothing on older rows.</p>
+      </section>
+
+      <!-- 5 -->
+      <section class="chapter" id="s5" aria-labelledby="h2-5">
+        <h2 id="h2-5"><span class="n">5</span>Leakage, and the rule that prevents it</h2>
+        <p>The governing constraint: <b>a feature for match <var>k</var> may use only matches 1 … <var>k</var>−1.</b> Every design decision downstream traces to this rule. Every rolling, expanding and exponentially weighted statistic is shifted by one match before it is aggregated. Elo is recorded pre-update: the rating on a match row is the one the team carried <em>into</em> that match, never the one it left with. Odds are the pre-kickoff price; the closing line enters only as separate features describing where the market moved, itself known before kickoff. Squad prices are frozen at each season's gameweek-1 snapshot. Final-score goals enter only as the target of the Poisson goal model, never as an input.</p>
+        <h3>What leakage would look like here</h3>
+        <p>There are two ways this dataset leaks, and both are quiet. The first is a random train/test split. Rolling features summarise the matches before each row, so rows are not independent: row <var>k</var> carries information about rows 1 … <var>k</var>−1. A shuffle puts later matches in training and earlier matches in test; the model learns from the future to predict the past and its test score inflates. The cure is a chronological cut by season (section 12).</p>
+        <p>The second is the order of two pandas operations. <code>rolling(3).mean()</code> at match <var>k</var> includes match <var>k</var>. <code>shift(1).rolling(3).mean()</code> averages only the three matches before it. Man United's first eight league matches of 2015-16, from the season file, with a window of three:</p>
+        <div class="table-card">
+          <div class="scroll-x">
+            <table class="sm-table">
+              <caption>The same feature, computed the wrong way and the right way</caption>
+              <thead><tr><th>Date</th><th>Opponent</th><th>Pts</th><th>roll-3 (leaks)</th><th>shift(1) + roll-3 (safe)</th></tr></thead>
+              <tbody>
+                <tr><td>2015-08-08</td><td>Tottenham (H)</td><td>3</td><td>3.00</td><td>—</td></tr>
+                <tr><td>2015-08-14</td><td>Aston Villa (A)</td><td>3</td><td>3.00</td><td>3.00</td></tr>
+                <tr><td>2015-08-22</td><td>Newcastle (H)</td><td>1</td><td class="hi">2.33</td><td class="hi">3.00</td></tr>
+                <tr><td>2015-08-30</td><td>Swansea (A)</td><td>0</td><td>1.33</td><td>2.33</td></tr>
+                <tr><td>2015-09-12</td><td>Liverpool (H)</td><td>3</td><td>1.33</td><td>1.33</td></tr>
+                <tr><td>2015-09-20</td><td>Southampton (A)</td><td>3</td><td>2.00</td><td>1.33</td></tr>
+                <tr><td>2015-09-26</td><td>Sunderland (H)</td><td>3</td><td>3.00</td><td>2.00</td></tr>
+                <tr><td>2015-10-04</td><td>Arsenal (A)</td><td>0</td><td class="hi">2.00</td><td class="hi">3.00</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <p>Row three is the leak in miniature. The Newcastle match was a 0–0 draw worth one point. The leaky column reads 2.33 because it has already averaged in that point: the feature knows the result it is supposed to predict. The safe column reads 3.00, the mean of the two wins before it. The first row is empty by construction: no prior match exists. A model trained on the left column would discover that "teams who did well in a match did well in it", look brilliant in a notebook, and collapse on real fixtures.</p>
+        <p>The constraint is verified, not assumed. The feature notebook recomputes one rolling feature independently for 150 sampled matches and asserts a maximum difference of zero, and checks that both teams in the dataset's first match carry an Elo of exactly 1500. The two quantities fitted on the data rather than computed from it, the expected-goals proxy (section 6) and the odds-bias exponent (section 7), are fitted on seasons up to 2018-19 only, so nothing downstream of the evaluation splits touches them.</p>
+      </section>
+
+      <!-- 6 -->
+      <section class="chapter" id="s6" aria-labelledby="h2-6">
+        <h2 id="h2-6"><span class="n">6</span>Features</h2>
+        <p><span class="num" data-src="ui_meta.json#n_features" data-fmt="int">78</span> features, almost all differences of the form <em>home value − away value</em>, in six groups.</p>
+        <p><b>Rolling form and expected goals.</b> Last-five and exponentially weighted (half-life 4) means of points, goals for and against, goal difference, shots, shots on target and corners; season-to-date expanding means that reset each August; a venue-restricted points average splitting home form from away form; shot conversion and accuracy. An expected-goals proxy is fitted by least squares of actual goals on off-target and on-target shots:</p>
+        <div class="formula">x̂G <span class="op">=</span> <var>a</var> <span class="op">+</span> <var>b</var>·(shots − SoT) <span class="op">+</span> <var>c</var>·SoT<span class="where">solved from the 3×3 normal equations on seasons up to 2018-19; on-target shots carry almost all the weight, off-target shots almost none, the shape a real xG model has. Real xG replaces it where the source provides it.</span></div>
+        <p>Rolling xG, xG-against and xG-difference follow, plus a finishing term (goals minus xG over the last five) that flags hot or cold finishing and regresses to zero.</p>
+        <p><b>Elo.</b> One rating per team, updated after every match, absorbing strength of schedule:</p>
+        <div class="formula"><var>E</var><sub>h</sub> <span class="op">=</span> 1 <span class="op">/</span> (1 + 10<sup>−(<var>R</var><sub>h</sub> + HFA − <var>R</var><sub>a</sub>)/400</sup>), <span class="op">&nbsp;</span> <var>R</var> ← <var>R</var> <span class="op">+</span> <var>K</var>·√max(|Δgoals|, 1)·(<var>S</var> − <var>E</var>)<span class="where">K = 20; S is 1, ½ or 0 for a win, draw or loss. Three departures from textbook Elo: the update is margin-aware, so a three-goal win moves ratings about 1.7 times a one-goal win; the home-field advantage is not a fixed 60 points but the value implied by the previous three seasons' league-wide home points rate, which fell from <span class="num" data-src="site_stats.json#hfa_by_season.2011-12" data-fmt="1">78.7</span> for 2011-12 to <span class="num" data-src="site_stats.json#hfa_by_season.2022-23" data-fmt="1">24.7</span> for 2022-23 once the empty-stadium 2020-21 season entered the window; and ratings regress 25% toward 1500 each season boundary, with promoted teams entering at 1500.</span></div>
+        <p><b>Venue, rest and head-to-head.</b> Home-versus-away form split; days since the previous match; matches played in the last 14 days; mean points in the last five meetings of this pair, keyed on an unordered pair so the history is symmetric.</p>
+        <p><b>League position and pressure.</b> The table as it stood before each match (points, goal difference, rank), the points gap to 18th and to 4th, and the games-played gap.</p>
+        <p><b>Market signal (19 columns).</b> De-vigged 1X2 probabilities two ways (proportional, and a power transform correcting favourite–longshot bias, fitted on 2000–2018); the overround; supremacy; entropy; implied total goals recovered by inverting the Poisson tail on the de-vigged over/under 2.5 line and split into implied home and away expected goals; closing-line probabilities; and closing-minus-opening movement.</p>
+        <p><b>Squad strength (9 columns).</b> Total squad value, first-XI value, bench value, prior-season points per game across the first XI, best-keeper and per-line prices, and an attack-versus-defence edge term. 2024-25 onward only.</p>
+        <p>Before any model is trained, the correlation of each feature with each outcome already tells the story of section 2: Elo difference correlates at <span class="num" data-src="viz_stats.json#corr_top.H[0]" data-fmt="2">0.35</span> with home wins and <span class="num" data-src="viz_stats.json#corr_top.A[0]" data-fmt="2">−0.35</span> with away wins, season-to-date goal difference and points close behind, and no feature correlates with a draw beyond ±0.05. The <a href="pipeline.html#signal">pipeline page</a> draws the full table.</p>
+      </section>
+
+      <!-- 7 -->
+      <section class="chapter" id="s7" aria-labelledby="h2-7">
+        <h2 id="h2-7"><span class="n">7</span>The market as a prior, not a competitor</h2>
+        <p>The obvious framing is a contest: build a model, compare it with the bookmaker, hope to win. This project rejects that framing on the evidence. A closing line aggregates every public model, every team-sheet leak and every stake placed; over the seven rolling-origin seasons in section 13 its log loss ranged from <span class="num" data-src="ui_meta.json#rolling_origin[0].market_ll" data-fmt="3">0.897</span> to <span class="num" data-src="ui_meta.json#rolling_origin[2].market_ll" data-fmt="3">1.000</span>, and no feature set built from public statistics matches it from a standing start. The ablation in section 13 makes the point numerically: adding the market columns to the form, Elo and xG features improves test log loss from <span class="num" data-src="ablation_result.json#ablation[1].test_logloss" data-fmt="4">0.9491</span> to <span class="num" data-src="ablation_result.json#ablation[2].test_logloss" data-fmt="4">0.9455</span>, the largest single step on the ladder.</p>
+        <p>So the model uses the price as a <em>prior</em>. Its job is not to replace the market's estimate but to find the places where 25 years of results and 78 public numbers disagree with it, and move a few points in that direction. This has two practical merits. Where the model has nothing to add, it inherits the market's estimate instead of a worse one of its own, and where the model is uncertain, it has somewhere sensible to fall back to.</p>
+        <p>Raw odds do not quite work as probabilities: the inverses of the three prices sum to a little over one, the overround. Dividing by the sum gives vig-free probabilities. Taking their logs gives the log-odds the trees will start from.</p>
+        <figure class="figure">
+          <div class="scroll-x">
+            <svg class="dia" viewBox="0 0 900 230" width="900" height="230" style="min-width:640px" role="img" aria-labelledby="f2-t" aria-describedby="f2-d">
+              <title id="f2-t">Figure 2. From odds to the base margin</title>
+              <desc id="f2-d">Worked example. Decimal odds 1.53, 4.30 and 6.50 invert to 0.654, 0.233 and 0.154, summing to 1.040. Dividing gives 0.628, 0.224 and 0.148; their logs, minus 0.464, minus 1.498 and minus 1.911, are the base margin the trees start from.</desc>
+              <defs><marker id="f2a" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="var(--accent)"/></marker></defs>
+              <text x="30" y="34" class="dim mono">decimal odds (worked example)</text>
+              <g class="mono" font-size="15"><text x="30" y="76">H   1.53</text><text x="30" y="108">D   4.30</text><text x="30" y="140">A   6.50</text></g>
+              <text x="30" y="180" class="dim mono">1/odds: 0.654 + 0.233 + 0.154</text>
+              <text x="30" y="200" class="acc mono b">Σ = 1.040   (overround 4.0%)</text>
+              <path d="M215 106 L285 106" stroke="var(--accent)" stroke-width="1.6" marker-end="url(#f2a)"/><text x="228" y="96" class="dim mono">÷ Σ</text>
+              <text x="310" y="34" class="dim mono">vig-free probability</text>
+              <g class="mono"><rect x="310" y="58" width="226" height="22" rx="4" class="seg-h"/><text x="544" y="74">0.628  H</text><rect x="310" y="94" width="81" height="22" rx="4" class="seg-d"/><text x="399" y="110">0.224  D</text><rect x="310" y="130" width="53" height="22" rx="4" class="seg-a"/><text x="371" y="146">0.148  A</text></g>
+              <path d="M600 106 L670 106" stroke="var(--accent)" stroke-width="1.6" marker-end="url(#f2a)"/><text x="620" y="96" class="dim mono">log</text>
+              <text x="700" y="34" class="dim mono">base margin</text>
+              <g class="mono" font-size="15"><text x="700" y="76">−0.464</text><text x="700" y="108">−1.498</text><text x="700" y="140">−1.911</text></g>
+              <text x="700" y="180" class="dim">the trees add to this,</text><text x="700" y="198" class="dim">then a softmax gives P</text>
+            </svg>
+          </div>
+          <figcaption><span class="fig-label">Figure 2</span><b>From odds to the base margin.</b> Where no odds exist (2000–02, about 8% of matches) the base margin is log(1/3), a flat prior.</figcaption>
+        </figure>
+      </section>
+
+      <!-- 8 -->
+      <section class="chapter" id="s8" aria-labelledby="h2-8">
+        <h2 id="h2-8"><span class="n">8</span>Model A: boosted trees on top of the prior</h2>
+        <p>Gradient boosting fits a chain of small trees. Each tree is trained on what the chain so far still gets wrong, and its leaves are not verdicts but small additions to a running log-odds. XGBoost's <code>base_margin</code> is what makes the prior concrete: it is the value the running total starts from for each row, before any tree has spoken. Setting it to the log of the vig-free market probability means the trees only ever model the <em>residual</em>:</p>
+        <div class="formula"><var>z</var><sub><var>k</var></sub>(<var>x</var>) <span class="op">=</span> log <var>p</var><sup>mkt</sup><sub><var>k</var></sub> <span class="op">+</span> Σ<sub><var>t</var>=1..<var>T</var></sub> <var>f</var><sub><var>t</var>,<var>k</var></sub>(<var>x</var>), <span class="op">&nbsp;</span> <var>p</var><sub><var>k</var></sub> <span class="op">=</span> softmax(<var>z</var>)<sub><var>k</var></sub><span class="where">for classes k = H, D, A. With no trees at all the model <em>is</em> the market. Each tree f<sub>t</sub> adds a correction where the features say the price is off.</span></div>
+        <p>The classifier is a <code>multi:softprob</code> XGBoost model with <span data-src="config.json#clf_params.max_depth" data-fmt="int">3</span>-deep trees, learning rate <span class="num" data-src="config.json#clf_params.eta" data-fmt="2">0.03</span>, row subsampling <span class="num" data-src="config.json#clf_params.subsample" data-fmt="2">0.85</span>, column subsampling <span class="num" data-src="config.json#clf_params.colsample_bytree" data-fmt="2">0.70</span>, minimum child weight <span class="num" data-src="config.json#clf_params.min_child_weight" data-fmt="int">8</span>, L2 <span class="num" data-src="config.json#clf_params.reg_lambda" data-fmt="1">2.0</span> and L1 <span class="num" data-src="config.json#clf_params.reg_alpha" data-fmt="1">0.5</span> regularisation, up to 4,000 rounds with early stopping on the validation block. There are <b>no class weights</b>. An earlier version used inverse-frequency weights to force draws up; it predicted draws it did not believe, and the log loss got worse. Boosting already minimises the multi-class log loss directly, so the probabilities are left honest and any draw-seeking is handled at the decision step (section 11).</p>
+        <figure class="figure">
+          <div class="scroll-x">
+            <svg class="dia" viewBox="0 0 760 330" width="760" height="330" style="min-width:600px" role="img" aria-labelledby="f3-t" aria-describedby="f3-d">
+              <title id="f3-t">Figure 3. One tree in the chain</title>
+              <desc id="f3-d">Schematic of one depth-3 tree. The root asks whether the Elo difference is at most 38; the left child asks about exponentially weighted xG-difference form, the right child about market supremacy; each of those splits once more, and the eight leaves hold small positive or negative nudges to the home log-odds. Thresholds and leaf values are illustrative.</desc>
+              <g text-anchor="middle" class="mono">
+                <rect class="stroke-acc fill-soft" x="300" y="16" width="160" height="40" rx="10" stroke-width="1.5"/><text x="380" y="41">elo_diff ≤ 38 ?</text>
+                <line x1="340" y1="56" x2="210" y2="96" stroke="var(--ink-2)"/><line x1="420" y1="56" x2="550" y2="96" stroke="var(--ink-2)"/>
+                <text x="262" y="82" class="dim" font-size="11">yes</text><text x="498" y="82" class="dim" font-size="11">no</text>
+                <rect class="stroke-acc fill-soft" x="120" y="96" width="180" height="40" rx="10" stroke-width="1.5"/><text x="210" y="121">xgd_ewm_diff ≤ −0.4 ?</text>
+                <rect class="stroke-acc fill-soft" x="460" y="96" width="180" height="40" rx="10" stroke-width="1.5"/><text x="550" y="121">mkt_supremacy ≤ 0.2 ?</text>
+                <line x1="170" y1="136" x2="110" y2="176" stroke="var(--ink-2)"/><line x1="250" y1="136" x2="310" y2="176" stroke="var(--ink-2)"/>
+                <line x1="510" y1="136" x2="450" y2="176" stroke="var(--ink-2)"/><line x1="590" y1="136" x2="650" y2="176" stroke="var(--ink-2)"/>
+                <rect class="stroke" x="40" y="176" width="140" height="38" rx="10"/><text x="110" y="200">days_rest_diff ≤ −1 ?</text>
+                <rect class="stroke" x="240" y="176" width="140" height="38" rx="10"/><text x="310" y="200">clv_H ≤ 0 ?</text>
+                <rect class="stroke" x="380" y="176" width="140" height="38" rx="10"/><text x="450" y="200">shots_std_diff ≤ 2 ?</text>
+                <rect class="stroke" x="580" y="176" width="140" height="38" rx="10"/><text x="650" y="200">rank_diff ≤ −5 ?</text>
+                <g stroke="var(--ink-2)"><line x1="80" y1="214" x2="60" y2="250"/><line x1="140" y1="214" x2="160" y2="250"/><line x1="280" y1="214" x2="260" y2="250"/><line x1="340" y1="214" x2="360" y2="250"/><line x1="420" y1="214" x2="400" y2="250"/><line x1="480" y1="214" x2="500" y2="250"/><line x1="620" y1="214" x2="600" y2="250"/><line x1="680" y1="214" x2="700" y2="250"/></g>
+                <g font-size="12">
+                  <circle cx="60" cy="268" r="18" class="fill-soft" stroke="var(--accent)"/><text x="60" y="272">−.05</text>
+                  <circle cx="160" cy="268" r="18" class="fill-soft" stroke="var(--accent)"/><text x="160" y="272">−.02</text>
+                  <circle cx="260" cy="268" r="18" class="fill-soft" stroke="var(--accent)"/><text x="260" y="272">+.01</text>
+                  <circle cx="360" cy="268" r="18" class="fill-soft" stroke="var(--accent)"/><text x="360" y="272">+.03</text>
+                  <circle cx="400" cy="268" r="18" class="fill-soft" stroke="var(--accent)"/><text x="400" y="272">−.01</text>
+                  <circle cx="500" cy="268" r="18" class="fill-soft" stroke="var(--accent)"/><text x="500" y="272">+.02</text>
+                  <circle cx="600" cy="268" r="18" class="fill-soft" stroke="var(--accent)"/><text x="600" y="272">+.04</text>
+                  <circle cx="700" cy="268" r="18" class="fill-soft" stroke="var(--accent)"/><text x="700" y="272">+.06</text>
+                </g>
+              </g>
+              <text x="380" y="318" class="dim" text-anchor="middle">Schematic: three questions deep, leaves are nudges to the running log-odds. Thresholds and values are illustrative.</text>
+            </svg>
+          </div>
+          <figcaption><span class="fig-label">Figure 3</span><b>One tree in the chain.</b> A depth-3 tree asks at most three questions of a match and lands in one of eight leaves; the leaf's value is added to the log-odds, and the next tree starts from the updated total. A few hundred such trees, each scaled by the learning rate, make up Model A.</figcaption>
+        </figure>
+      </section>
+
+      <!-- 9 -->
+      <section class="chapter" id="s9" aria-labelledby="h2-9">
+        <h2 id="h2-9"><span class="n">9</span>Model B: Dixon–Coles goals</h2>
+        <p>A draw is not a class a team chooses; it is what happens when two low scoring rates meet. So Model B does not classify at all. Two XGBoost regressors with a Poisson objective predict the expected home goals <var>λ</var> and away goals <var>μ</var>, each starting from the market's implied expected goals as its base margin (the same prior idea as section 8, applied to a count). From those two numbers a full scoreline distribution follows:</p>
+        <div class="formula"><var>P</var>(<var>i</var>, <var>j</var>) <span class="op">=</span> Pois(<var>i</var>; <var>λ</var>) · Pois(<var>j</var>; <var>μ</var>) · <var>τ</var>(<var>i</var>, <var>j</var>)<span class="where">i home goals, j away goals. Summing the lower triangle (i &gt; j) gives P(H), the diagonal gives P(D), the upper triangle gives P(A). The draw falls out of the arithmetic.</span></div>
+        <p>Two independent Poissons are known to be wrong in one specific place: they under-predict 0–0 and 1–1 and over-predict 1–0 and 0–1, because goals in low-scoring games are not independent. Dixon and Coles (1997) fixed this with a correction on exactly those four cells:</p>
+        <div class="formula"><var>τ</var>(0,0) <span class="op">=</span> 1 − <var>λμρ</var>, <span class="op">&nbsp;</span> <var>τ</var>(1,0) <span class="op">=</span> 1 + <var>μρ</var>, <span class="op">&nbsp;</span> <var>τ</var>(0,1) <span class="op">=</span> 1 + <var>λρ</var>, <span class="op">&nbsp;</span> <var>τ</var>(1,1) <span class="op">=</span> 1 − <var>ρ</var>, <span class="op">&nbsp;</span> <var>τ</var> <span class="op">=</span> 1 otherwise<span class="where">ρ is fitted on the tuning block by minimising outcome log loss; the committed value is <span class="num" data-src="config.json#dixon_coles_rho" data-fmt="2">−0.11</span>. A negative ρ raises the two draws and lowers the two one-goal wins, then the matrix is renormalised. Note that the sign convention here is the one the code uses: with ρ &lt; 0, 1 − λμρ &gt; 1.</span></div>
+        <p>The same matrix supplies the exact-score grid the site shows for every match, and the over-2.5 and both-teams-score probabilities. Model B tends to be sharper than Model A on tight, low-scoring games, which is precisely where Model A is weakest; that complementarity is the reason for the blend.</p>
+        <figure class="figure">
+          <div class="scroll-x">
+            <svg class="dia" viewBox="0 0 760 300" width="760" height="300" style="min-width:560px" role="img" aria-labelledby="f4-t" aria-describedby="f4-d">
+              <title id="f4-t">Figure 4. A Dixon–Coles scoreline matrix</title>
+              <desc id="f4-d">Worked example with expected home goals 1.74 and away goals 0.92 at the committed rho. Home goals run down the rows, away goals across the columns. The lower triangle sums to a home-win probability of 0.555, the diagonal to a draw probability of 0.260 and the upper triangle to 0.185. The most likely single score is 1–1 at 0.124.</desc>
+              <text x="20" y="26" class="mono">λ = 1.74     μ = 0.92     ρ = <tspan data-src="config.json#dixon_coles_rho" data-fmt="2">−0.11</tspan>     (worked example)</text>
+              <g class="mono" transform="translate(70,62)">
+                <text x="150" y="-22" class="dim" text-anchor="middle">away goals →</text>
+                <text x="-44" y="120" class="dim" text-anchor="middle" transform="rotate(-90,-44,120)">home goals →</text>
+                <g class="dim" text-anchor="middle"><text x="30" y="-6">0</text><text x="80" y="-6">1</text><text x="130" y="-6">2</text><text x="180" y="-6">3</text><text x="230" y="-6">4</text><text x="280" y="-6">5</text></g>
+                <g class="dim" text-anchor="end"><text x="-10" y="20">0</text><text x="-10" y="60">1</text><text x="-10" y="100">2</text><text x="-10" y="140">3</text><text x="-10" y="180">4</text><text x="-10" y="220">5</text></g>
+                <rect x="6" y="0" width="48" height="30" rx="5" class="seg-d" opacity="0.66"/><text x="30" y="19" text-anchor="middle" style="fill:var(--seg-draw-ink)">.082</text>
+                <rect x="56" y="0" width="48" height="30" rx="5" class="seg-a" opacity="0.42"/><text x="80" y="19" text-anchor="middle">.052</text>
+                <rect x="106" y="0" width="48" height="30" rx="5" class="seg-a" opacity="0.24"/><text x="130" y="19" text-anchor="middle">.030</text>
+                <rect x="156" y="0" width="48" height="30" rx="5" class="seg-a" opacity="0.07"/><text x="180" y="19" text-anchor="middle" class="dim">.009</text>
+                <rect x="206" y="0" width="48" height="30" rx="5" class="seg-a" opacity="0.02"/><text x="230" y="19" text-anchor="middle" class="dim">.002</text>
+                <rect x="256" y="0" width="48" height="30" rx="5" class="seg-a" opacity="0.01"/>
+                <rect x="6" y="40" width="48" height="30" rx="5" class="seg-h" opacity="0.88"/><text x="30" y="59" text-anchor="middle" style="fill:var(--seg-home-ink)">.109</text>
+                <rect x="56" y="40" width="48" height="30" rx="5" class="seg-d" opacity="1"/><text x="80" y="59" text-anchor="middle" class="b" style="fill:var(--seg-draw-ink)">.124</text>
+                <rect x="106" y="40" width="48" height="30" rx="5" class="seg-a" opacity="0.42"/><text x="130" y="59" text-anchor="middle">.052</text>
+                <rect x="156" y="40" width="48" height="30" rx="5" class="seg-a" opacity="0.13"/><text x="180" y="59" text-anchor="middle" class="dim">.016</text>
+                <rect x="206" y="40" width="48" height="30" rx="5" class="seg-a" opacity="0.03"/><text x="230" y="59" text-anchor="middle" class="dim">.004</text>
+                <rect x="256" y="40" width="48" height="30" rx="5" class="seg-a" opacity="0.01"/>
+                <rect x="6" y="80" width="48" height="30" rx="5" class="seg-h" opacity="0.85"/><text x="30" y="99" text-anchor="middle" style="fill:var(--seg-home-ink)">.106</text>
+                <rect x="56" y="80" width="48" height="30" rx="5" class="seg-h" opacity="0.78"/><text x="80" y="99" text-anchor="middle" style="fill:var(--seg-home-ink)">.097</text>
+                <rect x="106" y="80" width="48" height="30" rx="5" class="seg-d" opacity="0.36"/><text x="130" y="99" text-anchor="middle">.045</text>
+                <rect x="156" y="80" width="48" height="30" rx="5" class="seg-a" opacity="0.11"/><text x="180" y="99" text-anchor="middle" class="dim">.014</text>
+                <rect x="206" y="80" width="48" height="30" rx="5" class="seg-a" opacity="0.02"/><text x="230" y="99" text-anchor="middle" class="dim">.003</text>
+                <rect x="256" y="80" width="48" height="30" rx="5" class="seg-a" opacity="0.01"/>
+                <rect x="6" y="120" width="48" height="30" rx="5" class="seg-h" opacity="0.49"/><text x="30" y="139" text-anchor="middle">.061</text>
+                <rect x="56" y="120" width="48" height="30" rx="5" class="seg-h" opacity="0.46"/><text x="80" y="139" text-anchor="middle">.057</text>
+                <rect x="106" y="120" width="48" height="30" rx="5" class="seg-h" opacity="0.21"/><text x="130" y="139" text-anchor="middle">.026</text>
+                <rect x="156" y="120" width="48" height="30" rx="5" class="seg-d" opacity="0.06"/><text x="180" y="139" text-anchor="middle" class="dim">.008</text>
+                <rect x="206" y="120" width="48" height="30" rx="5" class="seg-a" opacity="0.02"/><text x="230" y="139" text-anchor="middle" class="dim">.002</text>
+                <rect x="256" y="120" width="48" height="30" rx="5" class="seg-a" opacity="0.01"/>
+                <rect x="6" y="160" width="48" height="30" rx="5" class="seg-h" opacity="0.22"/><text x="30" y="179" text-anchor="middle">.027</text>
+                <rect x="56" y="160" width="48" height="30" rx="5" class="seg-h" opacity="0.20"/><text x="80" y="179" text-anchor="middle">.025</text>
+                <rect x="106" y="160" width="48" height="30" rx="5" class="seg-h" opacity="0.09"/><text x="130" y="179" text-anchor="middle" class="dim">.011</text>
+                <rect x="156" y="160" width="48" height="30" rx="5" class="seg-h" opacity="0.02"/><text x="180" y="179" text-anchor="middle" class="dim">.003</text>
+                <rect x="206" y="160" width="48" height="30" rx="5" class="seg-d" opacity="0.02"/>
+                <rect x="256" y="160" width="48" height="30" rx="5" class="seg-a" opacity="0.01"/>
+                <rect x="6" y="200" width="48" height="30" rx="5" class="seg-h" opacity="0.07"/><text x="30" y="219" text-anchor="middle" class="dim">.009</text>
+                <rect x="56" y="200" width="48" height="30" rx="5" class="seg-h" opacity="0.07"/><text x="80" y="219" text-anchor="middle" class="dim">.009</text>
+                <rect x="106" y="200" width="48" height="30" rx="5" class="seg-h" opacity="0.03"/><text x="130" y="219" text-anchor="middle" class="dim">.004</text>
+                <rect x="156" y="200" width="48" height="30" rx="5" class="seg-h" opacity="0.01"/><rect x="206" y="200" width="48" height="30" rx="5" class="seg-h" opacity="0.01"/><rect x="256" y="200" width="48" height="30" rx="5" class="seg-d" opacity="0.01"/>
+                <rect x="6" y="0" width="98" height="70" rx="6" class="stroke-acc" stroke-width="2" stroke-dasharray="4 3"/>
+              </g>
+              <g class="mono" transform="translate(430,80)">
+                <rect x="0" y="8" width="12" height="12" rx="3" class="seg-h"/><text x="22" y="19">lower triangle  Σ = P(H) = 0.555</text>
+                <rect x="0" y="38" width="12" height="12" rx="3" class="seg-d"/><text x="22" y="49">diagonal        Σ = P(D) = 0.260</text>
+                <rect x="0" y="68" width="12" height="12" rx="3" class="seg-a"/><text x="22" y="79">upper triangle  Σ = P(A) = 0.185</text>
+                <text x="0" y="118" class="dim" font-family="var(--font)">dashed box: the four τ-corrected cells</text>
+                <text x="0" y="138" class="dim" font-family="var(--font)">most likely score 1–1 at 12.4%</text>
+              </g>
+            </svg>
+          </div>
+          <figcaption><span class="fig-label">Figure 4</span><b>A Dixon–Coles scoreline matrix.</b> Expected goals are chosen for illustration; ρ is the committed value and every cell is computed from it.</figcaption>
+        </figure>
+      </section>
+
+      <!-- 10 -->
+      <section class="chapter" id="s10" aria-labelledby="h2-10">
+        <h2 id="h2-10"><span class="n">10</span>The blend</h2>
+        <p>Model A and Model B see the same features but make different mistakes: the classifier is sharper on strong favourites, the goal model on tight, low-scoring games. When two forecasts have errors that are not fully correlated, their average has a lower error than either, which is the same reason a forest beats a single tree. The blend is a plain weighted mean of the two probability vectors:</p>
+        <div class="formula"><var>p</var> <span class="op">=</span> <var>w</var>·<var>p</var><sub>A</sub> <span class="op">+</span> (1 − <var>w</var>)·<var>p</var><sub>B</sub><span class="where">w is chosen by evaluating the log loss of the blend on the tuning block at 41 equally spaced values of w from 0 to 1 and keeping the minimum. Nothing is fitted; it is a one-dimensional search on held-out matches.</span></div>
+        <p>In the committed model <var>w</var> = <span class="num" data-src="config.json#blend_weight_w" data-fmt="2">0.30</span>: the classifier carries 30% of the vote and the goal model 70%, tuned on the 2023-25 block. That weight is not stable across tuning windows. The bundle tuned on 2021-23, which produced the test-season numbers, weighted the classifier at about <span class="num" data-src="site_stats.json#blend_reconstructed.test.w_clf" data-fmt="3">0.925</span>, a figure reconstructed from the published test predictions by searching for the weight and temperature that reproduce them (mean absolute error <span class="num" data-src="site_stats.json#blend_reconstructed.test.mean_abs_err" data-fmt="5">0.00003</span>, rounding noise). Two seasons of validation, about 700 matches, pin the log loss surface only loosely along <var>w</var>, and the two models are close enough in quality that the optimum wanders. The practical reading is that the blend is worth having, and that its exact proportions should not be over-interpreted.</p>
+      </section>
+
+      <!-- 11 -->
+      <section class="chapter" id="s11" aria-labelledby="h2-11">
+        <h2 id="h2-11"><span class="n">11</span>Calibration, and why the draw stays hard</h2>
+        <p>A model can have a good log loss and still be systematically over- or under-confident: it says 65% and the event happens 58% of the time. Calibration is the post-processing step that maps stated probabilities onto observed frequencies. Two calibrators were fitted on the tuning block. A per-class isotonic map (pool-adjacent-violators, hand-rolled in numpy) is the flexible choice, but on 700 tuning matches it overfits the bumps of the validation sample. The one that ships is a single temperature:</p>
+        <div class="formula"><var>p</var>′<sub><var>k</var></sub> <span class="op">∝</span> <var>p</var><sub><var>k</var></sub><sup>1/<var>T</var></sup><span class="where">one parameter, chosen on the tuning block by grid search over T in [0.5, 3.0]. T &gt; 1 softens every probability toward one third, T &lt; 1 sharpens. The committed value is T = <span class="num" data-src="config.json#temperature" data-fmt="2">1.04</span>: the blend was already close to honest.</span></div>
+        <figure class="figure">
+          <div class="scroll-x">
+            <svg class="dia" viewBox="0 0 640 320" width="640" height="320" style="min-width:480px" role="img" aria-labelledby="f5-t" aria-describedby="f5-d">
+              <title id="f5-t">Figure 5. Reliability of the predicted home-win probability on the test seasons</title>
+              <desc id="f5-d">Ten deciles of predicted home-win probability plotted against the observed home-win rate in each decile. Points rise from 0.13 predicted and 0.07 observed to 0.82 predicted and 0.79 observed, close to the diagonal at both ends with a wobble in the middle deciles.</desc>
+              <g transform="translate(70,20)">
+                <rect x="0" y="0" width="260" height="260" class="stroke"/>
+                <line x1="0" y1="260" x2="260" y2="0" stroke="var(--line)" stroke-dasharray="4 4"/>
+                <g stroke="var(--line-soft)"><line x1="65" y1="0" x2="65" y2="260"/><line x1="130" y1="0" x2="130" y2="260"/><line x1="195" y1="0" x2="195" y2="260"/><line x1="0" y1="65" x2="260" y2="65"/><line x1="0" y1="130" x2="260" y2="130"/><line x1="0" y1="195" x2="260" y2="195"/></g>
+                <polyline points="33.5,241.5 56.9,200.5 77,204.4 91.5,156 107.9,148.5 125.3,150.8 143.3,81.6 162.8,137.5 184.9,81.6 213.2,55.6" fill="none" stroke="var(--accent)" stroke-width="2.5"/>
+                <g fill="var(--accent)"><circle cx="33.5" cy="241.5" r="4"/><circle cx="56.9" cy="200.5" r="4"/><circle cx="77" cy="204.4" r="4"/><circle cx="91.5" cy="156" r="4"/><circle cx="107.9" cy="148.5" r="4"/><circle cx="125.3" cy="150.8" r="4"/><circle cx="143.3" cy="81.6" r="4"/><circle cx="162.8" cy="137.5" r="4"/><circle cx="184.9" cy="81.6" r="4"/><circle cx="213.2" cy="55.6" r="4"/></g>
+                <g class="dim mono" font-size="11"><text x="0" y="278">0</text><text x="125" y="278">0.5</text><text x="250" y="278">1.0</text><text x="-10" y="264" text-anchor="end">0</text><text x="-10" y="134" text-anchor="end">0.5</text><text x="-10" y="6" text-anchor="end">1.0</text></g>
+                <text x="130" y="298" class="dim" text-anchor="middle">predicted P(home win), decile mean</text>
+                <text x="-40" y="130" class="dim" text-anchor="middle" transform="rotate(-90,-40,130)">observed home-win rate</text>
+              </g>
+              <g transform="translate(380,40)" class="mono" font-size="12">
+                <text x="0" y="0" class="dim">decile   pred   actual   n</text>
+                <text x="0" y="22">1      <tspan data-src="ui_meta.json#calibration[0].pred" data-fmt="3">0.129</tspan>   <tspan data-src="ui_meta.json#calibration[0].actual" data-fmt="3">0.071</tspan>   <tspan data-src="ui_meta.json#calibration[0].n" data-fmt="int">70</tspan></text>
+                <text x="0" y="42">2      <tspan data-src="ui_meta.json#calibration[1].pred" data-fmt="3">0.219</tspan>   <tspan data-src="ui_meta.json#calibration[1].actual" data-fmt="3">0.229</tspan>   70</text>
+                <text x="0" y="62">3      <tspan data-src="ui_meta.json#calibration[2].pred" data-fmt="3">0.296</tspan>   <tspan data-src="ui_meta.json#calibration[2].actual" data-fmt="3">0.214</tspan>   70</text>
+                <text x="0" y="82">4      <tspan data-src="ui_meta.json#calibration[3].pred" data-fmt="3">0.352</tspan>   <tspan data-src="ui_meta.json#calibration[3].actual" data-fmt="3">0.400</tspan>   70</text>
+                <text x="0" y="102">5      <tspan data-src="ui_meta.json#calibration[4].pred" data-fmt="3">0.415</tspan>   <tspan data-src="ui_meta.json#calibration[4].actual" data-fmt="3">0.429</tspan>   70</text>
+                <text x="0" y="122">6      <tspan data-src="ui_meta.json#calibration[5].pred" data-fmt="3">0.482</tspan>   <tspan data-src="ui_meta.json#calibration[5].actual" data-fmt="3">0.420</tspan>   <tspan data-src="ui_meta.json#calibration[5].n" data-fmt="int">69</tspan></text>
+                <text x="0" y="142">7      <tspan data-src="ui_meta.json#calibration[6].pred" data-fmt="3">0.551</tspan>   <tspan data-src="ui_meta.json#calibration[6].actual" data-fmt="3">0.686</tspan>   70</text>
+                <text x="0" y="162">8      <tspan data-src="ui_meta.json#calibration[7].pred" data-fmt="3">0.626</tspan>   <tspan data-src="ui_meta.json#calibration[7].actual" data-fmt="3">0.471</tspan>   70</text>
+                <text x="0" y="182">9      <tspan data-src="ui_meta.json#calibration[8].pred" data-fmt="3">0.711</tspan>   <tspan data-src="ui_meta.json#calibration[8].actual" data-fmt="3">0.686</tspan>   70</text>
+                <text x="0" y="202">10     <tspan data-src="ui_meta.json#calibration[9].pred" data-fmt="3">0.820</tspan>   <tspan data-src="ui_meta.json#calibration[9].actual" data-fmt="3">0.786</tspan>   70</text>
+              </g>
+            </svg>
+          </div>
+          <figcaption><span class="fig-label">Figure 5</span><b>Reliability of P(home win) on the test seasons.</b> Calibration is good at the extremes and unstable in the middle: the 0.551 bucket won 0.686 while the 0.626 bucket won 0.471, a non-monotonicity across about 70 matches per bucket, which is the size of sampling noise at that depth.</figcaption>
+        </figure>
+        <h3>Why the draw stays hard</h3>
+        <p>Three reasons stack up. <b>Base rate:</b> draws are about a quarter of matches, the smallest class, and a probability near 25% is almost never the largest of three. <b>No signature:</b> no pre-kickoff feature correlates with a draw, so the model's draw probability stays close to its base rate and the argmax never lands on it. <b>Geometry:</b> a draw sits between H and A in every feature that matters, so any small error pushes the prediction into the nearest decisive class.</p>
+        <p>None of this is a calibration failure. Temperature scaling maps stated probabilities to observed rates and does exactly that for the draw too: a 26% draw probability is right about 26% of the time. What calibration cannot do is invent a signal that is not in the features. For a use case that needs draws <em>called</em>, the project reports a decision rule rather than a modelling change: multiply P(draw) by <span class="num" data-src="config.json#draw_utility_bonus" data-fmt="2">1.75</span> before the argmax, a factor chosen on the tuning block to reach 40% draw recall. It trades accuracy for draw recall and is never fed back into training.</p>
+      </section>
+
+      <!-- 12 -->
+      <section class="chapter" id="s12" aria-labelledby="h2-12">
+        <h2 id="h2-12"><span class="n">12</span>Evaluation method</h2>
+        <p><b>Chronological split.</b> The data is cut by season, never shuffled. Counts are after the three-prior-games filter, derived from the season files by the same rule the notebook applies.</p>
+        <div class="table-card">
+          <div class="scroll-x">
+            <table class="sm-table">
+              <caption>Splits</caption>
+              <thead><tr><th>Slice</th><th>Seasons</th><th>Matches</th><th>Purpose</th></tr></thead>
+              <tbody>
+                <tr><td>train</td><td>2000-01 … 2020-21</td><td class="num" data-src="site_stats.json#splits.totals.train" data-fmt="int,">7,325</td><td class="wrap-cell">fit the trees</td></tr>
+                <tr><td>valid</td><td>2021-22, 2022-23</td><td class="num" data-src="site_stats.json#splits.totals.valid" data-fmt="int">700</td><td class="wrap-cell">early stopping, blend weight, ρ, temperature</td></tr>
+                <tr><td>test</td><td>2023-24, 2024-25</td><td class="num" data-src="site_stats.json#splits.totals.test" data-fmt="int">699</td><td class="wrap-cell">the slice looked at while iterating</td></tr>
+                <tr><td>holdout</td><td>2025-26</td><td class="num" data-src="site_stats.json#splits.totals.holdout" data-fmt="int">350</td><td class="wrap-cell">evaluated exactly once</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <p>The holdout is nominally 2025-26 and 2026-27, but no 2026-27 row yet clears the three-prior-games filter (<span class="num" data-src="site_stats.json#season_2026_27.played_matches_in_data" data-fmt="int">20</span> matches played, two per club), so in practice it is 2025-26 only.</p>
+        <p><b>Two bundles.</b> Each is tuned on data that precedes what it scores. One is fitted on train and tuned on valid to score test; the other, the committed model, is fitted on train plus valid and tuned on test to score the holdout. Early-stopping round, blend weight, ρ and temperature are all chosen on the tuning slice, never the scoring slice.</p>
+        <p><b>Rolling-origin check.</b> One split can be lucky. For each of seven recent seasons the full blend is refitted on everything preceding that season's two-season tuning block and scored on that season alone.</p>
+        <p><b>Holdout discipline.</b> The holdout has been evaluated once. Further tuning against it would turn it into a second test set, so the numbers in section 13 are final for this model, and the season page scores 2026-27 fixtures with exactly this bundle, unchanged.</p>
+      </section>
+
+      <!-- 13 -->
+      <section class="chapter" id="s13" aria-labelledby="h2-13">
+        <h2 id="h2-13"><span class="n">13</span>Results</h2>
+        <h3>Headline metrics</h3>
+        <div class="table-card">
+          <div class="scroll-x">
+            <table class="sm-table">
+              <caption>Held-out performance</caption>
+              <thead><tr><th>Metric</th><th>Test (2023-24 + 2024-25, n = <span data-src="ui_meta.json#test.n" data-fmt="int">699</span>)</th><th>Holdout (2025-26, n = <span data-src="ui_meta.json#holdout.n" data-fmt="int">350</span>)</th></tr></thead>
+              <tbody>
+                <tr><td>model accuracy</td><td class="hi num" data-src="ui_meta.json#test.model.acc" data-fmt="pct1">56.1%</td><td class="hi num" data-src="ui_meta.json#holdout.model.acc" data-fmt="pct1">48.3%</td></tr>
+                <tr><td>always-home baseline</td><td class="num" data-src="ui_meta.json#test.baseline_acc" data-fmt="pct1">43.9%</td><td class="num" data-src="ui_meta.json#holdout.baseline_acc" data-fmt="pct1">42.0%</td></tr>
+                <tr><td>market accuracy (argmax of the price)</td><td class="num" data-src="ui_meta.json#test.market.acc" data-fmt="pct1">55.9%</td><td class="num" data-src="ui_meta.json#holdout.market.acc" data-fmt="pct1">49.7%</td></tr>
+                <tr><td>model log loss</td><td class="hi num" data-src="ui_meta.json#test.model.logloss" data-fmt="4">0.9459</td><td class="num" data-src="ui_meta.json#holdout.model.logloss" data-fmt="4">1.0192</td></tr>
+                <tr><td>market log loss (de-vigged)</td><td class="num" data-src="ui_meta.json#test.market.logloss" data-fmt="4">0.9492</td><td class="hi num" data-src="ui_meta.json#holdout.market.logloss" data-fmt="4">1.0162</td></tr>
+                <tr><td>model ranked probability score</td><td class="num" data-src="ui_meta.json#test.model.rps" data-fmt="4">0.1913</td><td class="num" data-src="ui_meta.json#holdout.model.rps" data-fmt="4">0.2051</td></tr>
+                <tr><td>market ranked probability score</td><td class="num" data-src="ui_meta.json#test.market.rps" data-fmt="4">0.1930</td><td class="num" data-src="ui_meta.json#holdout.market.rps" data-fmt="4">0.2041</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <p>The model beats always-home by about 12 accuracy points on test and 6 on holdout, sits 0.003 log loss ahead of the market on test and 0.003 behind it on holdout, which is small enough that the honest reading is level with the closing line rather than ahead of it.</p>
+
+        <h3>Per-class recall</h3>
+        <div class="table-card">
+          <div class="scroll-x">
+            <table class="sm-table">
+              <caption>The draw problem, in numbers</caption>
+              <thead><tr><th>Class</th><th>Test recall</th><th>Test precision</th><th>Test support</th><th>Holdout recall</th><th>Holdout precision</th><th>Holdout support</th></tr></thead>
+              <tbody>
+                <tr><td>Home</td><td class="num" data-src="site_stats.json#confusion.test.per_class.H.recall" data-fmt="pct1">80.8%</td><td class="num" data-src="site_stats.json#confusion.test.per_class.H.precision" data-fmt="pct1">57.5%</td><td class="num" data-src="site_stats.json#confusion.test.per_class.H.support" data-fmt="int">307</td><td class="num" data-src="site_stats.json#confusion.holdout.per_class.H.recall" data-fmt="pct1">77.6%</td><td class="num" data-src="site_stats.json#confusion.holdout.per_class.H.precision" data-fmt="pct1">52.3%</td><td class="num" data-src="site_stats.json#confusion.holdout.per_class.H.support" data-fmt="int">147</td></tr>
+                <tr><td>Draw</td><td class="hi num" data-src="site_stats.json#confusion.test.per_class.D.recall" data-fmt="pct1">0.0%</td><td>undefined</td><td class="num" data-src="site_stats.json#confusion.test.per_class.D.support" data-fmt="int">163</td><td class="hi num" data-src="site_stats.json#confusion.holdout.per_class.D.recall" data-fmt="pct1">0.0%</td><td>undefined</td><td class="num" data-src="site_stats.json#confusion.holdout.per_class.D.support" data-fmt="int">98</td></tr>
+                <tr><td>Away</td><td class="num" data-src="site_stats.json#confusion.test.per_class.A.recall" data-fmt="pct1">62.9%</td><td class="num" data-src="site_stats.json#confusion.test.per_class.A.precision" data-fmt="pct1">53.7%</td><td class="num" data-src="site_stats.json#confusion.test.per_class.A.support" data-fmt="int">229</td><td class="num" data-src="site_stats.json#confusion.holdout.per_class.A.recall" data-fmt="pct1">52.4%</td><td class="num" data-src="site_stats.json#confusion.holdout.per_class.A.precision" data-fmt="pct1">41.7%</td><td class="num" data-src="site_stats.json#confusion.holdout.per_class.A.support" data-fmt="int">105</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <p>Draw precision is undefined on both splits because the model makes zero draw predictions. Across test and holdout, 261 matches ended in a draw and none were called.</p>
+
+        <figure class="figure">
+          <div class="cm-row">
+            <svg class="dia" viewBox="0 0 300 260" role="img" aria-labelledby="f6a-t" aria-describedby="f6a-d">
+              <title id="f6a-t">Figure 6a. Confusion matrix, test</title>
+              <desc id="f6a-d">Rows are the actual result, columns the prediction. Actual home: 248 predicted home, 0 draw, 59 away. Actual draw: 98, 0, 65. Actual away: 85, 0, 144.</desc>
+              <text x="150" y="18" class="b" text-anchor="middle">Test, n = <tspan data-src="site_stats.json#confusion.test.n" data-fmt="int">699</tspan></text>
+              <g class="dim mono" text-anchor="middle" font-size="11"><text x="105" y="42">pred H</text><text x="175" y="42">pred D</text><text x="245" y="42">pred A</text></g>
+              <g class="dim mono" text-anchor="end" font-size="11"><text x="66" y="84">actual H</text><text x="66" y="154">actual D</text><text x="66" y="224">actual A</text></g>
+              <g class="mono" text-anchor="middle" font-size="14">
+                <rect x="72" y="50" width="66" height="60" rx="8" class="seg-h" opacity="0.81"/><text x="105" y="85" class="b" style="fill:var(--seg-home-ink)" data-src="site_stats.json#confusion.test.matrix[0][0]" data-fmt="int">248</text>
+                <rect x="142" y="50" width="66" height="60" rx="8" class="seg-a" opacity="0.06"/><text x="175" y="85" data-src="site_stats.json#confusion.test.matrix[0][1]" data-fmt="int">0</text>
+                <rect x="212" y="50" width="66" height="60" rx="8" class="seg-a" opacity="0.24"/><text x="245" y="85" data-src="site_stats.json#confusion.test.matrix[0][2]" data-fmt="int">59</text>
+                <rect x="72" y="120" width="66" height="60" rx="8" class="seg-a" opacity="0.60"/><text x="105" y="155" style="fill:var(--seg-away-ink)" data-src="site_stats.json#confusion.test.matrix[1][0]" data-fmt="int">98</text>
+                <rect x="142" y="120" width="66" height="60" rx="8" class="seg-h" opacity="0.06"/><text x="175" y="155" data-src="site_stats.json#confusion.test.matrix[1][1]" data-fmt="int">0</text>
+                <rect x="212" y="120" width="66" height="60" rx="8" class="seg-a" opacity="0.42"/><text x="245" y="155" data-src="site_stats.json#confusion.test.matrix[1][2]" data-fmt="int">65</text>
+                <rect x="72" y="190" width="66" height="60" rx="8" class="seg-a" opacity="0.40"/><text x="105" y="225" data-src="site_stats.json#confusion.test.matrix[2][0]" data-fmt="int">85</text>
+                <rect x="142" y="190" width="66" height="60" rx="8" class="seg-a" opacity="0.06"/><text x="175" y="225" data-src="site_stats.json#confusion.test.matrix[2][1]" data-fmt="int">0</text>
+                <rect x="212" y="190" width="66" height="60" rx="8" class="seg-h" opacity="0.63"/><text x="245" y="225" class="b" style="fill:var(--seg-home-ink)" data-src="site_stats.json#confusion.test.matrix[2][2]" data-fmt="int">144</text>
+              </g>
+            </svg>
+            <svg class="dia" viewBox="0 0 300 260" role="img" aria-labelledby="f6b-t" aria-describedby="f6b-d">
+              <title id="f6b-t">Figure 6b. Confusion matrix, holdout</title>
+              <desc id="f6b-d">Actual home: 114 predicted home, 0 draw, 33 away. Actual draw: 54, 0, 44. Actual away: 50, 0, 55.</desc>
+              <text x="150" y="18" class="b" text-anchor="middle">Holdout, n = <tspan data-src="site_stats.json#confusion.holdout.n" data-fmt="int">350</tspan></text>
+              <g class="dim mono" text-anchor="middle" font-size="11"><text x="105" y="42">pred H</text><text x="175" y="42">pred D</text><text x="245" y="42">pred A</text></g>
+              <g class="dim mono" text-anchor="end" font-size="11"><text x="66" y="84">actual H</text><text x="66" y="154">actual D</text><text x="66" y="224">actual A</text></g>
+              <g class="mono" text-anchor="middle" font-size="14">
+                <rect x="72" y="50" width="66" height="60" rx="8" class="seg-h" opacity="0.78"/><text x="105" y="85" class="b" style="fill:var(--seg-home-ink)" data-src="site_stats.json#confusion.holdout.matrix[0][0]" data-fmt="int">114</text>
+                <rect x="142" y="50" width="66" height="60" rx="8" class="seg-a" opacity="0.06"/><text x="175" y="85" data-src="site_stats.json#confusion.holdout.matrix[0][1]" data-fmt="int">0</text>
+                <rect x="212" y="50" width="66" height="60" rx="8" class="seg-a" opacity="0.26"/><text x="245" y="85" data-src="site_stats.json#confusion.holdout.matrix[0][2]" data-fmt="int">33</text>
+                <rect x="72" y="120" width="66" height="60" rx="8" class="seg-a" opacity="0.55"/><text x="105" y="155" style="fill:var(--seg-away-ink)" data-src="site_stats.json#confusion.holdout.matrix[1][0]" data-fmt="int">54</text>
+                <rect x="142" y="120" width="66" height="60" rx="8" class="seg-h" opacity="0.06"/><text x="175" y="155" data-src="site_stats.json#confusion.holdout.matrix[1][1]" data-fmt="int">0</text>
+                <rect x="212" y="120" width="66" height="60" rx="8" class="seg-a" opacity="0.45"/><text x="245" y="155" data-src="site_stats.json#confusion.holdout.matrix[1][2]" data-fmt="int">44</text>
+                <rect x="72" y="190" width="66" height="60" rx="8" class="seg-a" opacity="0.48"/><text x="105" y="225" data-src="site_stats.json#confusion.holdout.matrix[2][0]" data-fmt="int">50</text>
+                <rect x="142" y="190" width="66" height="60" rx="8" class="seg-a" opacity="0.06"/><text x="175" y="225" data-src="site_stats.json#confusion.holdout.matrix[2][1]" data-fmt="int">0</text>
+                <rect x="212" y="190" width="66" height="60" rx="8" class="seg-h" opacity="0.52"/><text x="245" y="225" class="b" style="fill:var(--seg-home-ink)" data-src="site_stats.json#confusion.holdout.matrix[2][2]" data-fmt="int">55</text>
+              </g>
+            </svg>
+          </div>
+          <figcaption><span class="fig-label">Figure 6</span><b>Confusion matrices.</b> Rows are the actual result, columns the prediction; the shaded diagonal is correct. The middle column is empty on both splits. Drawn matches split roughly 60/40 into predicted-home and predicted-away on test and about evenly on holdout.</figcaption>
+        </figure>
+
+        <h3>Feature importance</h3>
+        <p>Top twenty by gain, classifier only, for the committed bundle. Gain is measured over training data, not over any evaluation split.</p>
+        <div class="table-card">
+          <div class="scroll-x">
+            <table class="sm-table">
+              <caption>Classifier gain importance</caption>
+              <thead><tr><th>#</th><th>Feature</th><th>Meaning</th><th>Gain</th></tr></thead>
+              <tbody>
+                <tr><td>1</td><td><code data-src="ui_meta.json#importance[0].feat">mkt_pow_A</code></td><td class="wrap-cell" data-src="ui_meta.json#importance[0].label">market P(away), bias-adj</td><td class="num" data-src="ui_meta.json#importance[0].gain" data-fmt="1">7.3</td></tr>
+                <tr><td>2</td><td><code data-src="ui_meta.json#importance[1].feat">shots_roll5_diff</code></td><td class="wrap-cell" data-src="ui_meta.json#importance[1].label">shots form</td><td class="num" data-src="ui_meta.json#importance[1].gain" data-fmt="1">5.9</td></tr>
+                <tr><td>3</td><td><code data-src="ui_meta.json#importance[2].feat">xgd_ewm_diff</code></td><td class="wrap-cell" data-src="ui_meta.json#importance[2].label">xG-diff form (EWMA)</td><td class="num" data-src="ui_meta.json#importance[2].gain" data-fmt="1">5.7</td></tr>
+                <tr><td>4</td><td><code data-src="ui_meta.json#importance[3].feat">clv_D</code></td><td class="wrap-cell" data-src="ui_meta.json#importance[3].label">draw line move</td><td class="num" data-src="ui_meta.json#importance[3].gain" data-fmt="1">5.4</td></tr>
+                <tr><td>5</td><td><code data-src="ui_meta.json#importance[4].feat">shots_std_diff</code></td><td class="wrap-cell" data-src="ui_meta.json#importance[4].label">season shots/game</td><td class="num" data-src="ui_meta.json#importance[4].gain" data-fmt="1">5.2</td></tr>
+                <tr><td>6</td><td><code data-src="ui_meta.json#importance[5].feat">sot_std_diff</code></td><td class="wrap-cell" data-src="ui_meta.json#importance[5].label">season SoT/game</td><td class="num" data-src="ui_meta.json#importance[5].gain" data-fmt="1">5.1</td></tr>
+                <tr><td>7</td><td><code data-src="ui_meta.json#importance[6].feat">xg_roll5_diff</code></td><td class="wrap-cell" data-src="ui_meta.json#importance[6].label">xG form</td><td class="num" data-src="ui_meta.json#importance[6].gain" data-fmt="1">5.1</td></tr>
+                <tr><td>8</td><td><code data-src="ui_meta.json#importance[7].feat">close_p_H</code></td><td class="wrap-cell" data-src="ui_meta.json#importance[7].label">closing P(home)</td><td class="num" data-src="ui_meta.json#importance[7].gain" data-fmt="1">5.0</td></tr>
+                <tr><td>9</td><td><code data-src="ui_meta.json#importance[8].feat">mkt_overround</code></td><td class="wrap-cell" data-src="ui_meta.json#importance[8].label">bookmaker margin</td><td class="num" data-src="ui_meta.json#importance[8].gain" data-fmt="1">4.8</td></tr>
+                <tr><td>10</td><td><code data-src="ui_meta.json#importance[9].feat">clv_H</code></td><td class="wrap-cell" data-src="ui_meta.json#importance[9].label">home line move</td><td class="num" data-src="ui_meta.json#importance[9].gain" data-fmt="1">4.7</td></tr>
+                <tr><td>11</td><td><code data-src="ui_meta.json#importance[10].feat">xg_ewm_diff</code></td><td class="wrap-cell" data-src="ui_meta.json#importance[10].label">xG form (EWMA)</td><td class="num" data-src="ui_meta.json#importance[10].gain" data-fmt="1">4.7</td></tr>
+                <tr><td>12</td><td><code data-src="ui_meta.json#importance[11].feat">mkt_supremacy</code></td><td class="wrap-cell" data-src="ui_meta.json#importance[11].label">market supremacy</td><td class="num" data-src="ui_meta.json#importance[11].gain" data-fmt="1">4.6</td></tr>
+                <tr><td>13</td><td><code data-src="ui_meta.json#importance[12].feat">corners_std_diff</code></td><td class="wrap-cell" data-src="ui_meta.json#importance[12].label">season corners/game</td><td class="num" data-src="ui_meta.json#importance[12].gain" data-fmt="1">4.6</td></tr>
+                <tr><td>14</td><td><code data-src="ui_meta.json#importance[13].feat">mkt_p_D</code></td><td class="wrap-cell" data-src="ui_meta.json#importance[13].label">market P(draw)</td><td class="num" data-src="ui_meta.json#importance[13].gain" data-fmt="1">4.6</td></tr>
+                <tr><td>15</td><td><code data-src="ui_meta.json#importance[14].feat">mkt_p_H</code></td><td class="wrap-cell" data-src="ui_meta.json#importance[14].label">market P(home)</td><td class="num" data-src="ui_meta.json#importance[14].gain" data-fmt="1">4.6</td></tr>
+                <tr><td>16</td><td><code data-src="ui_meta.json#importance[15].feat">games_played_diff</code></td><td class="wrap-cell" data-src="ui_meta.json#importance[15].label">games played gap</td><td class="num" data-src="ui_meta.json#importance[15].gain" data-fmt="1">4.5</td></tr>
+                <tr><td>17</td><td><code data-src="ui_meta.json#importance[16].feat">elo_diff</code></td><td class="wrap-cell" data-src="ui_meta.json#importance[16].label">Elo rating gap</td><td class="num" data-src="ui_meta.json#importance[16].gain" data-fmt="1">4.4</td></tr>
+                <tr><td>18</td><td><code data-src="ui_meta.json#importance[17].feat">shots_ewm_diff</code></td><td class="wrap-cell" data-src="ui_meta.json#importance[17].label">shots form (EWMA)</td><td class="num" data-src="ui_meta.json#importance[17].gain" data-fmt="1">4.4</td></tr>
+                <tr><td>19</td><td><code data-src="ui_meta.json#importance[18].feat">mkt_xg_away</code></td><td class="wrap-cell" data-src="ui_meta.json#importance[18].label">market away xG</td><td class="num" data-src="ui_meta.json#importance[18].gain" data-fmt="1">4.4</td></tr>
+                <tr><td>20</td><td><code data-src="ui_meta.json#importance[19].feat">sot_ewm_diff</code></td><td class="wrap-cell" data-src="ui_meta.json#importance[19].label">SoT form (EWMA)</td><td class="num" data-src="ui_meta.json#importance[19].gain" data-fmt="1">4.3</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <p>Nine of the top twenty are market-derived. The model's own contribution concentrates in shot-volume and xG-form differentials rather than points or Elo; Elo difference ranks seventeenth despite being the strongest single correlate before training, because the market columns already carry most of what it says.</p>
+
+        <h3>Does the squad data help?</h3>
+        <div class="table-card">
+          <div class="scroll-x">
+            <table class="sm-table">
+              <caption>Ablation ladder on the test seasons, classifier only, tuned on validation</caption>
+              <thead><tr><th>Feature set</th><th>Columns</th><th>Test log loss</th><th>Test accuracy</th></tr></thead>
+              <tbody>
+                <tr><td>form + Elo only</td><td class="num" data-src="ablation_result.json#ablation[0].n_feats" data-fmt="int">42</td><td class="num" data-src="ablation_result.json#ablation[0].test_logloss" data-fmt="4">0.9494</td><td class="num" data-src="ablation_result.json#ablation[0].test_acc" data-fmt="pct1">56.1%</td></tr>
+                <tr><td>+ expected goals</td><td class="num" data-src="ablation_result.json#ablation[1].n_feats" data-fmt="int">50</td><td class="num" data-src="ablation_result.json#ablation[1].test_logloss" data-fmt="4">0.9491</td><td class="num" data-src="ablation_result.json#ablation[1].test_acc" data-fmt="pct1">55.9%</td></tr>
+                <tr><td>+ market</td><td class="num" data-src="ablation_result.json#ablation[2].n_feats" data-fmt="int">69</td><td class="hi num" data-src="ablation_result.json#ablation[2].test_logloss" data-fmt="4">0.9455</td><td class="hi num" data-src="ablation_result.json#ablation[2].test_acc" data-fmt="pct1">56.2%</td></tr>
+                <tr><td>+ squad (= all)</td><td class="num" data-src="ablation_result.json#ablation[3].n_feats" data-fmt="int">78</td><td class="num" data-src="ablation_result.json#ablation[3].test_logloss" data-fmt="4">0.9462</td><td class="num" data-src="ablation_result.json#ablation[3].test_acc" data-fmt="pct1">56.1%</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <p>Squad data does not earn its place on this evidence. It makes the classifier marginally worse on the full test window and marginally better on 2024-25 alone (<span class="num" data-src="ablation_result.json#squad_before_after[1].logloss" data-fmt="4">0.9813</span> to <span class="num" data-src="ablation_result.json#squad_before_after[3].logloss" data-fmt="4">0.9804</span>), both deltas smaller than the gap between adjacent ladder rows. The likely explanation is that squad quality is already priced into the market features, which is where the ladder's real gain comes from. The features are retained because they are leak-free and cheap, not because they demonstrably help.</p>
+
+        <h3>Rolling-origin check</h3>
+        <div class="table-card">
+          <div class="scroll-x">
+            <table class="sm-table">
+              <caption>The full blend refitted per season on everything preceding its tuning block</caption>
+              <thead><tr><th>Season</th><th>n</th><th>Model accuracy</th><th>Always home</th><th>Model log loss</th><th>Market log loss</th><th>Edge</th></tr></thead>
+              <tbody>
+                <tr><td>2018-19</td><td class="num" data-src="ui_meta.json#rolling_origin[0].n" data-fmt="int">350</td><td class="num" data-src="ui_meta.json#rolling_origin[0].acc" data-fmt="pct1">58.0%</td><td class="num" data-src="ui_meta.json#rolling_origin[0].base" data-fmt="pct1">47.7%</td><td class="num" data-src="ui_meta.json#rolling_origin[0].model_ll" data-fmt="3">0.895</td><td class="num" data-src="ui_meta.json#rolling_origin[0].market_ll" data-fmt="3">0.897</td><td class="num" data-src="ui_meta.json#rolling_origin[0].edge" data-fmt="3">+0.002</td></tr>
+                <tr><td>2019-20</td><td class="num" data-src="ui_meta.json#rolling_origin[1].n" data-fmt="int">350</td><td class="num" data-src="ui_meta.json#rolling_origin[1].acc" data-fmt="pct1">53.1%</td><td class="num" data-src="ui_meta.json#rolling_origin[1].base" data-fmt="pct1">46.3%</td><td class="num" data-src="ui_meta.json#rolling_origin[1].model_ll" data-fmt="3">0.969</td><td class="num" data-src="ui_meta.json#rolling_origin[1].market_ll" data-fmt="3">0.970</td><td class="num" data-src="ui_meta.json#rolling_origin[1].edge" data-fmt="3">+0.001</td></tr>
+                <tr><td>2020-21</td><td class="num" data-src="ui_meta.json#rolling_origin[2].n" data-fmt="int">348</td><td class="num" data-src="ui_meta.json#rolling_origin[2].acc" data-fmt="pct1">50.3%</td><td class="num" data-src="ui_meta.json#rolling_origin[2].base" data-fmt="pct1">38.2%</td><td class="num" data-src="ui_meta.json#rolling_origin[2].model_ll" data-fmt="3">1.000</td><td class="num" data-src="ui_meta.json#rolling_origin[2].market_ll" data-fmt="3">1.000</td><td class="num" data-src="ui_meta.json#rolling_origin[2].edge" data-fmt="3">0.000</td></tr>
+                <tr><td>2021-22</td><td class="num" data-src="ui_meta.json#rolling_origin[3].n" data-fmt="int">350</td><td class="num" data-src="ui_meta.json#rolling_origin[3].acc" data-fmt="pct1">58.9%</td><td class="num" data-src="ui_meta.json#rolling_origin[3].base" data-fmt="pct1">42.6%</td><td class="num" data-src="ui_meta.json#rolling_origin[3].model_ll" data-fmt="3">0.945</td><td class="num" data-src="ui_meta.json#rolling_origin[3].market_ll" data-fmt="3">0.941</td><td class="num" data-src="ui_meta.json#rolling_origin[3].edge" data-fmt="3">−0.004</td></tr>
+                <tr><td>2022-23</td><td class="num" data-src="ui_meta.json#rolling_origin[4].n" data-fmt="int">350</td><td class="num" data-src="ui_meta.json#rolling_origin[4].acc" data-fmt="pct1">56.3%</td><td class="num" data-src="ui_meta.json#rolling_origin[4].base" data-fmt="pct1">48.6%</td><td class="num" data-src="ui_meta.json#rolling_origin[4].model_ll" data-fmt="3">0.953</td><td class="num" data-src="ui_meta.json#rolling_origin[4].market_ll" data-fmt="3">0.956</td><td class="num" data-src="ui_meta.json#rolling_origin[4].edge" data-fmt="3">+0.003</td></tr>
+                <tr><td>2023-24</td><td class="num" data-src="ui_meta.json#rolling_origin[5].n" data-fmt="int">349</td><td class="num" data-src="ui_meta.json#rolling_origin[5].acc" data-fmt="pct1">59.0%</td><td class="num" data-src="ui_meta.json#rolling_origin[5].base" data-fmt="pct1">46.7%</td><td class="num" data-src="ui_meta.json#rolling_origin[5].model_ll" data-fmt="3">0.911</td><td class="num" data-src="ui_meta.json#rolling_origin[5].market_ll" data-fmt="3">0.917</td><td class="num" data-src="ui_meta.json#rolling_origin[5].edge" data-fmt="3">+0.006</td></tr>
+                <tr><td>2024-25</td><td class="num" data-src="ui_meta.json#rolling_origin[6].n" data-fmt="int">350</td><td class="num" data-src="ui_meta.json#rolling_origin[6].acc" data-fmt="pct1">53.7%</td><td class="num" data-src="ui_meta.json#rolling_origin[6].base" data-fmt="pct1">41.1%</td><td class="num" data-src="ui_meta.json#rolling_origin[6].model_ll" data-fmt="3">0.978</td><td class="num" data-src="ui_meta.json#rolling_origin[6].market_ll" data-fmt="3">0.981</td><td class="num" data-src="ui_meta.json#rolling_origin[6].edge" data-fmt="3">+0.003</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <figure class="figure">
+          <svg class="dia" viewBox="0 0 640 200" role="img" aria-labelledby="f7-t" aria-describedby="f7-d" style="max-width:640px">
+            <title id="f7-t">Figure 7. Log-loss edge over the market by season</title>
+            <desc id="f7-d">Bars for seven seasons: plus 0.002, plus 0.001, zero, minus 0.004, plus 0.003, plus 0.006 and plus 0.003. Five of seven are positive, one is a tie, one negative.</desc>
+            <g transform="translate(60,20)">
+              <line x1="0" y1="80" x2="540" y2="80" stroke="var(--line)"/>
+              <g class="dim mono" font-size="11" text-anchor="end"><text x="-8" y="24">+0.006</text><text x="-8" y="84">0</text><text x="-8" y="144">−0.006</text></g>
+              <rect x="20" y="60" width="40" height="20" rx="4" class="seg-h"/>
+              <rect x="100" y="70" width="40" height="10" rx="4" class="seg-h"/>
+              <rect x="180" y="79" width="40" height="2" rx="1" class="seg-d"/>
+              <rect x="260" y="80" width="40" height="40" rx="4" class="seg-a"/>
+              <rect x="340" y="50" width="40" height="30" rx="4" class="seg-h"/>
+              <rect x="420" y="20" width="40" height="60" rx="4" class="seg-h"/>
+              <rect x="500" y="50" width="40" height="30" rx="4" class="seg-h"/>
+              <g class="mono" font-size="11" text-anchor="middle">
+                <text x="40" y="52">+0.002</text><text x="120" y="62">+0.001</text><text x="200" y="72">0.000</text><text x="280" y="136">−0.004</text><text x="360" y="42">+0.003</text><text x="440" y="12">+0.006</text><text x="520" y="42">+0.003</text>
+              </g>
+              <g class="dim mono" font-size="11" text-anchor="middle"><text x="40" y="164">18-19</text><text x="120" y="164">19-20</text><text x="200" y="164">20-21</text><text x="280" y="164">21-22</text><text x="360" y="164">22-23</text><text x="440" y="164">23-24</text><text x="520" y="164">24-25</text></g>
+            </g>
+          </svg>
+          <figcaption><span class="fig-label">Figure 7</span><b>Edge over the market by season.</b> Market log loss minus model log loss, refitting before each season. Positive in <span class="num" data-src="site_stats.json#rolling_origin.beats_market" data-fmt="int">5</span> of <span class="num" data-src="site_stats.json#rolling_origin.n_seasons" data-fmt="int">7</span> seasons with one tie, mean <span class="num" data-src="site_stats.json#rolling_origin.mean_edge" data-fmt="3">+0.002</span>: consistent with the test and holdout numbers, and consistent with no real edge. The 2020-21 dip is the empty-stadium season, which damaged the always-home baseline far more than the model.</figcaption>
+        </figure>
+      </section>
+
+      <!-- 14 -->
+      <section class="chapter" id="s14" aria-labelledby="h2-14">
+        <h2 id="h2-14"><span class="n">14</span>Limitations and next steps</h2>
+        <h3>Limitations</h3>
+        <ul>
+          <li><b>It does not beat a calibrated bookmaker.</b> Holdout log loss is <span class="num" data-src="ui_meta.json#holdout.model.logloss" data-fmt="3">1.019</span> against the market's <span class="num" data-src="ui_meta.json#holdout.market.logloss" data-fmt="3">1.016</span>, and the rolling-origin edge averages <span class="num" data-src="site_stats.json#rolling_origin.mean_edge" data-fmt="3">+0.002</span> across seven seasons, within noise for samples of about 350 matches.</li>
+          <li><b>It never predicts a draw.</b> 261 drawn matches across test and holdout, none called. Any use case requiring draw identification needs a different decision rule at minimum, probably a different formulation.</li>
+          <li><b>Scorelines come only from the goal model.</b> The most likely scoreline typically carries under 15% probability.</li>
+          <li><b>It is blind to mid-season change.</b> Injuries, suspensions, transfers, manager changes and European fixture load are not inputs; squad prices are frozen at gameweek 1.</li>
+          <li><b>Calibration is unstable mid-range</b> on 70-match buckets (Figure 5).</li>
+          <li><b>Cold-start matches are not scored in evaluation.</b> Rows where either team has fewer than three prior matches that season are dropped: <span class="num" data-src="site_stats.json#splits.dropped_cold_start" data-fmt="int">826</span> of <span class="num" data-src="site_stats.json#splits.raw_total" data-fmt="int,">9,900</span>. The season page does score such fixtures, and flags them.</li>
+          <li><b>Squad-value features are unproven</b> (section 13).</li>
+        </ul>
+        <h3>Next steps</h3>
+        <ul>
+          <li><b>Retrain on everything, separately.</b> The holdout is spent. A single final fit on all matches with meta-parameters fixed at their current values would be the correct production model. It has deliberately not been done here, so that every number on this site belongs to one model with an out-of-sample record.</li>
+          <li><b>Add the signals the model is blind to.</b> An availability feed, a manager-change flag, days since a European fixture: the one category of information the bookmaker has and the model does not.</li>
+          <li><b>Reformulate the draw.</b> An ordinal model, or a scoreline-first model with the classifier demoted to a correction term. The committed blend already leans 70% on the goal model; making it the backbone rather than a blend partner is the natural direction.</li>
+          <li><b>Calibrate on a rolling window.</b> Temperature is fitted on a fixed two-season block; a trailing window would track drift in the home-advantage regime, which the Elo module handles and the calibrator does not.</li>
+        </ul>
+      </section>
+
+      <!-- 15 -->
+      <section class="chapter" id="s15" aria-labelledby="h2-15">
+        <h2 id="h2-15"><span class="n">15</span>Provenance</h2>
+        <p>Headline metrics, feature importance, calibration deciles and the rolling-origin table are read from <code>data/ui_meta.json</code>, exported by the model notebook. Confusion matrices, per-class recall and precision, the reconstructed blend weights, the home-advantage curve and the split counts are derived from <code>data/ui_predictions.json</code> and the raw season files by <code>tools/build_site_stats.py</code> into <code>docs/data/site_stats.json</code>. Hyper-parameters, blend weight, ρ, temperature, the draw-seeking factor and the split definitions come from <code>models/config.json</code>. The ablation ladder is <code>data/ablation_result.json</code>. Outcome shares and feature correlations are <code>data/viz_stats.json</code>. The Man United sequence in section 5 is the 2015-16 season file. Every figure on this page carries a machine-readable pointer to its source, and a script in the repository checks each one against the artefact on every deploy.</p>
+        <p class="muted small">Data: <a href="https://www.football-data.co.uk/englandm.php">football-data.co.uk</a> and <a href="https://github.com/olbauday/FPL-Core-Insights">FPL Core Insights</a>, used non-commercially. Code and pages under the MIT licence; the match data is not. Source: <a href="https://github.com/Daytoo77/pl-outcome-predictor">github.com/Daytoo77/pl-outcome-predictor</a>.</p>
+        <section class="print-only" id="print-links" aria-label="Links">
+          <h3>Links</h3>
+          <ol id="print-links-list"></ol>
+        </section>
+      </section>
+    </div>
+  </div>
+</main>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <ul class="links">
+      <li><a href="how-it-works.html">How it works</a></li>
+      <li><a href="predictions.html">Predictions</a></li>
+      <li><a href="season.html">2026-27 season</a></li>
+      <li><a href="https://github.com/Daytoo77/pl-outcome-predictor">Source on GitHub</a></li>
+    </ul>
+    <p>Model probabilities are computed from pre-kickoff information for study purposes. They are not betting advice.</p>
+  </div>
+</footer>
+
+<script>
+/* Print footnotes: list every external link in the body in document order, numbered to match
+   the [n] markers the print stylesheet appends after each link. */
+(function () {
+  function build() {
+    var list = document.getElementById('print-links-list');
+    if (!list) return;
+    var links = document.querySelectorAll('main a[href^="http"]');
+    list.innerHTML = '';
+    Array.prototype.forEach.call(links, function (a) {
+      var li = document.createElement('li');
+      li.textContent = a.getAttribute('href');
+      list.appendChild(li);
+    });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', build); else build();
+})();
+</script>
+</body>
+</html>

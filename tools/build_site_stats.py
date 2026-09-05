@@ -61,6 +61,47 @@ def home_points_rate(path):
     return total / n, n
 
 
+def split_counts(cfg):
+    """Matches per season, raw and after the cold-start filter (both clubs with >= 3 prior games
+    that season), and the totals per split as model.ipynb defines them."""
+    per_season = {}
+    for season, path in season_files():
+        for enc in ("utf-8-sig", "latin-1"):
+            try:
+                with open(path, encoding=enc, newline="") as fh:
+                    rows = list(csv.reader(fh))
+                break
+            except UnicodeDecodeError:
+                continue
+        header = rows[0]
+        ix = {c: i for i, c in enumerate(header)}
+        played = {}
+        raw = kept = 0
+        for r in rows[1:]:
+            if not any(c.strip() for c in r):
+                continue
+            r = r[: len(header)]
+            get = lambda k: (r[ix[k]].strip() if k in ix and ix[k] < len(r) else "")
+            if not (get("Date") and get("HomeTeam") and get("AwayTeam") and get("FTR")):
+                continue
+            raw += 1
+            h, a = get("HomeTeam"), get("AwayTeam")
+            if played.get(h, 0) >= 3 and played.get(a, 0) >= 3:
+                kept += 1
+            played[h] = played.get(h, 0) + 1
+            played[a] = played.get(a, 0) + 1
+        per_season[season] = {"raw": raw, "kept": kept}
+    valid, test, holdout = (set(cfg["splits"][k]) for k in ("valid", "test", "holdout"))
+    totals = {"train": 0, "valid": 0, "test": 0, "holdout": 0}
+    for s, c in per_season.items():
+        key = "valid" if s in valid else "test" if s in test else "holdout" if s in holdout else "train"
+        totals[key] += c["kept"]
+    return {"per_season": per_season, "totals": totals,
+            "raw_total": sum(c["raw"] for c in per_season.values()),
+            "kept_total": sum(c["kept"] for c in per_season.values()),
+            "dropped_cold_start": sum(c["raw"] - c["kept"] for c in per_season.values())}
+
+
 def hfa_from_rate(sbar):
     sbar = min(max(sbar, 0.5001), 0.75)
     return -400.0 * math.log10(1.0 / sbar - 1.0)
@@ -170,6 +211,7 @@ def main():
         "elo_top": [{"team": t, "elo": e} for e, t in elo_top[:5]],
         "elo_season": latest,
         "season_2026_27": {"played_matches_in_data": played_2627},
+        "splits": split_counts(cfg),
         "draws": {g: {"n_drawn": confusion(preds, g)["actual"]["D"], "n_called": confusion(preds, g)["predicted"]["D"]}
                   for g in ("test", "holdout")},
     }
