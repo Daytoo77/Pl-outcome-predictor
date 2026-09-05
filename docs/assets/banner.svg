@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 320" width="1200" height="320" role="img" aria-labelledby="bt bd">
+  <title id="bt">Premier League outcome model</title>
+  <desc id="bd">Home, draw and away probabilities for Premier League fixtures, priced against the bookmaker's line. A segmented probability bar animates in below the title.</desc>
+  <style>
+    .bg { fill: #0b0b0d; }
+    .card { fill: #1c1c1e; }
+    .t { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, system-ui, sans-serif; fill: #f5f5f7; }
+    .dim { fill: #a1a1a6; }
+    .acc { fill: #3d9cff; }
+    .mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+    /* resting state is the finished banner; the animation only plays the entrance,
+       so a renderer that skips CSS animation still shows the whole bar */
+    .seg { transform-box: fill-box; transform-origin: left center; animation: grow 1.4s cubic-bezier(0.32, 0.72, 0, 1) both; }
+    .h { fill: #3d9cff; animation-delay: 0.3s; }
+    .d { fill: #8e8e93; animation-delay: 0.7s; }
+    .a { fill: #d1d1d6; animation-delay: 1.1s; }
+    .lbl { animation: fade 0.6s ease both; animation-delay: 1.9s; }
+    .pulse { animation: blink 2.4s ease-in-out 2.4s infinite; }
+    @keyframes grow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+    @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
+    @media (prefers-reduced-motion: reduce) { .seg, .lbl, .pulse { animation: none; } }
+  </style>
+  <rect class="bg" width="1200" height="320" rx="24"/>
+  <g transform="translate(64,56)">
+    <rect x="0" y="0" width="40" height="40" rx="10" fill="#3d9cff"/>
+    <rect x="8" y="11" width="16" height="6" rx="2" fill="#000"/><rect x="26" y="11" width="6" height="6" rx="2" fill="#000" opacity="0.55"/>
+    <rect x="8" y="23" width="9" height="6" rx="2" fill="#000"/><rect x="19" y="23" width="13" height="6" rx="2" fill="#000" opacity="0.55"/>
+    <text class="t" x="56" y="29" font-size="20" font-weight="600" letter-spacing="0.08em">PREMIER LEAGUE OUTCOME MODEL</text>
+  </g>
+  <text class="t" x="64" y="150" font-size="46" font-weight="600" letter-spacing="-0.02em">Predicting football against the bookmaker's line</text>
+  <text class="t dim" x="64" y="186" font-size="20">Home / draw / away probabilities from 25 seasons and only what is knowable before kickoff.</text>
+  <g transform="translate(64,216)">
+    <rect class="card" x="0" y="0" width="1072" height="48" rx="12"/>
+    <rect class="seg h" x="0" y="0" width="595" height="48" rx="12"/>
+    <rect class="seg d" x="595" y="0" width="279" height="48"/>
+    <rect class="seg a" x="874" y="0" width="198" height="48" rx="12"/>
+    <text class="lbl mono" x="24" y="30" font-size="16" font-weight="700" fill="#000">HOME</text>
+    <text class="lbl mono" x="619" y="30" font-size="16" font-weight="700" fill="#000">DRAW</text>
+    <text class="lbl mono" x="898" y="30" font-size="16" font-weight="700" fill="#000">AWAY</text>
+  </g>
+  <g class="lbl mono" transform="translate(64,292)">
+    <text class="t dim" x="0" y="0" font-size="14">test log loss <tspan class="acc pulse" font-weight="700">0.946</tspan> vs market 0.949  ·  holdout 1.019 vs market 1.016  ·  9,074 matches  ·  78 pre-kickoff features  ·  numpy / pandas / xgboost</text>
+  </g>
+</svg>
