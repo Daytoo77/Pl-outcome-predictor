@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>2026-27 season · PL outcome model</title>
+<meta name="description" content="The committed model's forecasts for 2026-27 Premier League fixtures: home, draw and away probabilities, the most likely scoreline, and the strongest signals behind each call.">
+<link rel="canonical" href="https://daytoo77.github.io/pl-outcome-predictor/season.html">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#f5f5f7">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#000000">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Premier League outcome model">
+<meta property="og:title" content="2026-27 season forecasts">
+<meta property="og:description" content="Home, draw and away probabilities for upcoming Premier League fixtures, from the committed model and pre-kickoff information only.">
+<meta property="og:url" content="https://daytoo77.github.io/pl-outcome-predictor/season.html">
+<meta property="og:image" content="https://daytoo77.github.io/pl-outcome-predictor/assets/og/preview.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Premier League outcome model: test log loss 0.946 against the market's 0.949.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="2026-27 season forecasts">
+<meta name="twitter:description" content="Home, draw and away probabilities for upcoming Premier League fixtures, from the committed model and pre-kickoff information only.">
+<meta name="twitter:image" content="https://daytoo77.github.io/pl-outcome-predictor/assets/og/preview.png">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<link rel="stylesheet" href="assets/css/base.css">
+<link rel="stylesheet" href="assets/css/components.css">
+<script>(function(){try{var t=localStorage.getItem('pl-theme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t);var q=/[?&]theme=(light|dark)\b/.exec(location.search);if(q)document.documentElement.setAttribute('data-theme',q[1])}catch(e){}document.documentElement.classList.add('js')})()</script>
+<script src="assets/js/site.js" defer></script>
+<!-- Written by predict_upcoming.py alongside docs/data/upcoming.json; a script tag so a file:// clone works too. -->
+<script src="data/upcoming.js" defer></script>
+<style>
+  .summary { display: flex; flex-wrap: wrap; gap: var(--s-1) var(--s-3); margin-top: var(--s-3); font-size: var(--fs-sm); color: var(--ink-2); }
+  .summary b { color: var(--ink); }
+  .fx-grid { display: grid; grid-template-columns: 1fr; gap: var(--s-2); margin-top: var(--s-2); }
+  @media (min-width: 900px) { .fx-grid { grid-template-columns: 1fr 1fr; } }
+  .fx { padding: var(--s-3); display: flex; flex-direction: column; gap: var(--s-2); }
+  .fx-top { display: flex; justify-content: space-between; align-items: center; gap: var(--s-2); flex-wrap: wrap; font-size: var(--fs-xs); color: var(--ink-2); }
+  .fx-teams { font-family: var(--font-display); font-size: var(--fs-lg); font-weight: 600; letter-spacing: -0.01em; line-height: 1.2; margin: 0; }
+  .fx-teams .vs { color: var(--ink-2); font-weight: 400; margin: 0 var(--s-1); }
+  .fx-row { display: flex; flex-wrap: wrap; gap: var(--s-1) var(--s-2); align-items: center; font-size: var(--fs-sm); }
+  .fx-signals { list-style: none; padding: 0; margin: 0; display: grid; gap: 6px; font-size: var(--fs-sm); }
+  .fx-signals li { display: flex; justify-content: space-between; gap: var(--s-2); margin: 0; max-width: none; }
+  .fx-signals .to { color: var(--ink-2); font-size: var(--fs-xs); white-space: nowrap; }
+  .fx-result { display: flex; flex-wrap: wrap; gap: var(--s-1) var(--s-2); align-items: center; padding-top: var(--s-2); border-top: 1px solid var(--line-soft); }
+  .fx-result .score { font-family: var(--font-display); font-size: var(--fs-xl); font-weight: 600; letter-spacing: -0.02em; }
+  .hit { color: var(--accent); font-weight: 600; }
+  .miss { color: var(--ink-2); font-weight: 600; }
+  .lbl { font-size: var(--fs-xs); font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-2); }
+  .filters label { font-size: var(--fs-xs); font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-2); margin-right: var(--s-h); }
+  .filters .field { width: auto; }
+  html:not(.js) .needs-js { display: none; }
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="site-nav">
+  <div class="wrap">
+    <a class="wordmark" href="index.html">
+      <svg viewBox="0 0 64 64" aria-hidden="true" focusable="false"><rect class="mark-bg" width="64" height="64" rx="14"/><rect class="mark-fg" x="12" y="18" width="26" height="9" rx="3"/><rect class="mark-fg" x="41" y="18" width="11" height="9" rx="3" opacity="0.55"/><rect class="mark-fg" x="12" y="37" width="15" height="9" rx="3"/><rect class="mark-fg" x="30" y="37" width="22" height="9" rx="3" opacity="0.55"/></svg>
+      PL outcome model
+    </a>
+    <nav aria-label="Site">
+      <ul class="nav-links" id="nav-links">
+        <li><a href="index.html">Overview</a></li>
+        <li><a href="how-it-works.html">How it works</a></li>
+        <li><a href="pipeline.html">Pipeline</a></li>
+        <li><a href="random-forest.html">Trees</a></li>
+        <li><a href="playground.html">Playground</a></li>
+        <li><a href="predictions.html">Predictions</a></li>
+        <li><a href="season.html" aria-current="page">Season</a></li>
+        <li><a href="report.html">Report</a></li>
+      </ul>
+    </nav>
+    <button class="icon-btn nav-menu" type="button" data-nav-toggle aria-expanded="false" aria-controls="nav-links" aria-label="Menu">
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 7h16M4 12h16M4 17h16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+    </button>
+    <button class="icon-btn theme-toggle" type="button" data-theme-toggle data-state="system" aria-label="Theme: system. Switch to light.">
+      <svg class="i-system" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/></svg>
+      <svg class="i-light" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      <svg class="i-dark" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a7 7 0 1 0 10.5 10.5z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+    </button>
+  </div>
+</header>
+
+<main id="main" class="wrap">
+  <section class="hero" style="padding-bottom:var(--s-4)">
+    <p class="eyebrow">2026-27 season</p>
+    <h1>Season forecasts</h1>
+    <p class="lede">The committed model's probabilities for Premier League fixtures, computed from pre-kickoff information only: form, Elo, league position, squad value and the bookmaker's price. Each fixture shows the home, draw and away probabilities, the most likely scoreline from the Dixon–Coles grid, and the strongest signals behind the call.</p>
+    <div class="note" style="max-width:var(--measure)"><span class="kicker">Read before using</span>These are model probabilities on pre-kickoff information, not betting advice. On the 2025-26 holdout the model's own log loss, <b class="num" data-src="ui_meta.json#holdout.model.logloss" data-fmt="3">1.019</b>, sat marginally behind the market's <b class="num" data-src="ui_meta.json#holdout.market.logloss" data-fmt="3">1.016</b>. The model is the one whose numbers appear across this site: trained on 2000-01 to 2022-23, blend and calibration tuned on 2023-25, never retrained since.</div>
+    <div class="summary needs-js" id="summary" aria-live="polite"></div>
+  </section>
+
+  <noscript><div class="note"><span class="kicker">JavaScript is off</span>The fixture list is rendered from <code>docs/data/upcoming.json</code>, which needs JavaScript. The file itself is readable in the repository.</div></noscript>
+
+  <section class="needs-js" id="browse" aria-label="Fixtures" hidden>
+    <div class="filters">
+      <div class="filter-group" role="group" aria-label="Status">
+        <span class="lbl">Show</span>
+        <button class="chip" type="button" data-status="all" aria-pressed="true">all</button>
+        <button class="chip" type="button" data-status="upcoming" aria-pressed="false">upcoming</button>
+        <button class="chip" type="button" data-status="played" aria-pressed="false">played</button>
+      </div>
+      <div class="filter-group">
+        <label for="f-md">Matchday</label>
+        <select class="field" id="f-md"><option value="all">all</option></select>
+      </div>
+      <div class="filter-group">
+        <label for="f-club">Club</label>
+        <select class="field" id="f-club"><option value="all">all</option></select>
+      </div>
+      <label class="sr-only" for="f-q">Search fixtures</label>
+      <input class="field" type="search" id="f-q" placeholder="Search fixtures…" autocomplete="off">
+    </div>
+    <p class="muted small" id="count"></p>
+    <div class="fx-grid" id="fixtures"></div>
+  </section>
+
+  <section class="needs-js empty panel" id="empty" hidden>
+    <h2 id="empty-title">No fixtures to show yet</h2>
+    <p id="empty-lead">This page reads <code>docs/data/upcoming.json</code>, and that file has not been generated. It is produced by <code>predict_upcoming.py</code> from a fixtures-and-prices file that you supply.</p>
+    <div class="prose" style="margin:var(--s-3) auto 0; text-align:left">
+      <p><b>What the file needs.</b> One row per fixture with the fixture date, the two clubs, and the bookmaker's three match-odds prices as quoted (vig included). The columns use football-data.co.uk's names, so a fixtures export from that site can be saved as-is:</p>
+      <ul>
+        <li><code>Date</code> (dd/mm/yyyy), <code>HomeTeam</code>, <code>AwayTeam</code></li>
+        <li>one price triple: <code>B365H</code>, <code>B365D</code>, <code>B365A</code> or <code>AvgH</code>, <code>AvgD</code>, <code>AvgA</code></li>
+        <li>strongly recommended: the over/under 2.5 prices (<code>B365&gt;2.5</code>, <code>B365&lt;2.5</code> or <code>Avg&gt;2.5</code>, <code>Avg&lt;2.5</code>). Without them the goal model starts from league-average expected goals and its 70% share of the blend drifts toward the middle</li>
+        <li>optional: <code>Time</code> (UK kickoff), closing prices</li>
+      </ul>
+      <p><b>Where it comes from.</b> <a href="https://www.football-data.co.uk/englandm.php">football-data.co.uk</a>, the same source as the 25 seasons the model was trained on. Club names must match that site's spelling (for example <code>Nott'm Forest</code>, <code>Man United</code>).</p>
+      <p><b>How to generate the forecasts.</b></p>
+      <pre><code># 1. save the fixtures file as
+data/upcoming/2026-27.csv
+# 2. score it with the committed model (the parity gate runs first)
+python predict_upcoming.py
+# 3. commit the outputs
+git add docs/data/upcoming.json docs/data/upcoming.js</code></pre>
+      <p>Fixtures that already have a result in <code>data/2026-27.csv</code> are scored from their pre-kickoff row and shown with the result, so the page doubles as a running scorecard.</p>
+    </div>
+  </section>
+
+  <section class="section" style="padding-bottom:0" id="about-model">
+    <div class="prose">
+      <h2>How to read a forecast</h2>
+      <p style="margin-top:var(--s-2)">The bar is the calibrated blend of the two models: <span class="num" data-src="config.json#blend_weight_w" data-fmt="2">0.30</span> on the boosted-tree classifier and 0.70 on the Dixon–Coles goal model, then one temperature parameter of <span class="num" data-src="config.json#temperature" data-fmt="2">1.04</span>. The most likely scoreline comes from the goal model's scoreline matrix. The signals are the classifier's largest feature contributions toward its predicted class, in log-odds; the arrow says which club they favour.</p>
+      <p>A fixture is flagged <b>early season</b> when either club has fewer than <span class="num" data-src="upcoming.json#cold_start_games" data-fmt="int">3</span> games this season. The model was only trained and scored on rows with more history than that, so its form features are incomplete there and the market prior carries more of the answer. Every forecast on this page is produced by <code>predict_upcoming.py</code>, which refuses to write anything unless the rebuilt features reproduce the published holdout predictions to within rounding.</p>
+    </div>
+  </section>
+</main>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <ul class="links">
+      <li><a href="how-it-works.html">How it works</a></li>
+      <li><a href="report.html">Report</a></li>
+      <li><a href="predictions.html">Predictions</a></li>
+      <li><a href="https://github.com/Daytoo77/pl-outcome-predictor">Source on GitHub</a></li>
+    </ul>
+    <p>Data: <a href="https://www.football-data.co.uk/englandm.php">football-data.co.uk</a> and FPL Core Insights, used non-commercially. Code and pages are MIT licensed; the match data is not.</p>
+    <p>Model probabilities are computed from pre-kickoff information for study purposes. They are not betting advice.</p>
+  </div>
+</footer>
+
+<script>
+(function () {
+  'use strict';
+  function ready(fn) { if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', fn); else fn(); }
+  ready(function () {
+    var PL = window.PL, pct = PL.pct, esc = PL.esc;
+    var L = { H: 'Home win', D: 'Draw', A: 'Away win' };
+    var data = window.UPCOMING;
+    var empty = document.getElementById('empty');
+    var browse = document.getElementById('browse');
+    var summary = document.getElementById('summary');
+
+    if (!data || !data.fixtures || !data.fixtures.length) {
+      if (data && data.fixtures && !data.fixtures.length) {
+        document.getElementById('empty-title').textContent = 'The fixtures file had nothing to score';
+        document.getElementById('empty-lead').innerHTML = 'The generated <code>docs/data/upcoming.json</code> contains no fixtures. Check the fixtures file and re-run <code>predict_upcoming.py</code>.';
+      }
+      empty.hidden = false;
+      return;
+    }
+
+    var FX = data.fixtures.slice().sort(function (a, b) {
+      return (a.date + (a.time || '')).localeCompare(b.date + (b.time || ''));
+    });
+    var played = FX.filter(function (f) { return f.played; });
+    var correct = played.filter(function (f) { return f.correct; });
+    summary.innerHTML =
+      '<span><b>' + FX.length + '</b> fixture' + (FX.length === 1 ? '' : 's') + '</span>' +
+      '<span><b>' + played.length + '</b> played</span>' +
+      (played.length ? '<span><b>' + correct.length + '</b> called correctly</span>' : '') +
+      '<span>generated <b>' + esc(data.generated) + '</b></span>' +
+      (data.source_csv ? '<span>from <code>' + esc(data.source_csv) + '</code></span>' : '');
+    browse.hidden = false;
+
+    /* filters */
+    var state = { status: 'all', md: 'all', club: 'all', q: '' };
+    var mds = Array.from(new Set(FX.map(function (f) { return f.matchday; }))).sort(function (a, b) { return a - b; });
+    var clubs = Array.from(new Set(FX.reduce(function (acc, f) { return acc.concat([f.home, f.away]); }, []))).sort();
+    var selMd = document.getElementById('f-md'), selClub = document.getElementById('f-club');
+    mds.forEach(function (m) { selMd.add(new Option('Matchday ' + m, String(m))); });
+    clubs.forEach(function (c) { selClub.add(new Option(c, c)); });
+    selMd.addEventListener('change', function () { state.md = this.value; render(); });
+    selClub.addEventListener('change', function () { state.club = this.value; render(); });
+    document.getElementById('f-q').addEventListener('input', function () { state.q = this.value.trim().toLowerCase(); render(); });
+    var statusGroup = document.querySelector('[aria-label="Status"]');
+    statusGroup.addEventListener('click', function (e) {
+      var b = e.target.closest('.chip'); if (!b) return;
+      state.status = b.dataset.status;
+      Array.prototype.forEach.call(statusGroup.querySelectorAll('.chip'), function (c) { c.setAttribute('aria-pressed', c === b ? 'true' : 'false'); });
+      render();
+    });
+
+    function when(f) {
+      var d = new Date(f.date + 'T12:00:00Z');
+      var day = d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
+      var zone = f.tz || PL.ukZone(f.date);
+      return day + (f.time ? ' · ' + esc(f.time) + ' UK (' + zone + ')' : ' · kickoff time to be confirmed (UK)');
+    }
+    function probBar(f) {
+      var p = f.proba;
+      function seg(k, cls) {
+        var g = Math.max(p[k] * 100, 6);
+        return '<span class="' + cls + '" style="flex-grow:' + g + '" role="img" aria-label="' + L[k] + ' ' + pct(p[k]) + '">' + (p[k] >= 0.09 ? pct(p[k]) : '') + '</span>';
+      }
+      return '<div class="prob">' + seg('H', 'h') + seg('D', 'd') + seg('A', 'a') + '</div>' +
+        '<div class="prob-legend"><span class="' + (f.pred === 'H' ? 'pick' : '') + '"><span class="swatch h"></span>' + esc(f.home) + '</span>' +
+        '<span class="' + (f.pred === 'D' ? 'pick' : '') + '"><span class="swatch d"></span>Draw</span>' +
+        '<span class="' + (f.pred === 'A' ? 'pick' : '') + '"><span class="swatch a"></span>' + esc(f.away) + '</span></div>';
+    }
+    function card(f) {
+      var top = f.grid && f.grid.top && f.grid.top[0];
+      var h = '<article class="fx panel" aria-label="' + esc(f.home) + ' v ' + esc(f.away) + '">';
+      h += '<div class="fx-top"><span>' + when(f) + '</span><span class="tag tag-neutral">Matchday ' + f.matchday + '</span></div>';
+      h += '<h3 class="fx-teams">' + esc(f.home) + '<span class="vs">v</span>' + esc(f.away) + '</h3>';
+      h += probBar(f);
+      h += '<div class="fx-row"><span class="tag">' + L[f.pred] + ' · ' + pct(f.proba[f.pred]) + '</span>' +
+        (top ? '<span class="muted">most likely score <b>' + top.h + '–' + top.a + '</b> (' + pct(top.p) + ')</span>' : '') + '</div>';
+      if (f.market) {
+        h += '<div class="fx-row muted small"><span>market, vig-free: ' + pct(f.market.H) + ' / ' + pct(f.market.D) + ' / ' + pct(f.market.A) + '</span>' +
+          (f.odds ? '<span>quoted ' + f.odds.H + ' · ' + f.odds.D + ' · ' + f.odds.A + '</span>' : '') + '</div>';
+      } else {
+        h += '<div class="fx-row muted small">no bookmaker price supplied: the market prior is flat</div>';
+      }
+      if (f.signals && f.signals.length) {
+        h += '<div><div class="lbl" style="margin-bottom:6px">Strongest signals</div><ul class="fx-signals">' + f.signals.slice(0, 3).map(function (s) {
+          var to = s.effect > 0 ? f.home : f.away;
+          return '<li><span>' + esc(s.label) + '</span><span class="to">' + (s.effect > 0 ? '+' : '') + PL.fix(s.effect, 3) + ' toward ' + esc(to) + '</span></li>';
+        }).join('') + '</ul></div>';
+      }
+      var flags = [];
+      if (f.cold_start) flags.push('<span class="tag tag-neutral" title="Either club has fewer than ' + data.cold_start_games + ' games this season; form features are incomplete">early season: form features incomplete</span>');
+      if (flags.length) h += '<div class="fx-row">' + flags.join('') + '</div>';
+      if (f.played) {
+        h += '<div class="fx-result"><span class="lbl">Result</span><span class="score">' + f.score[0] + '–' + f.score[1] + '</span><span class="tag tag-neutral">' + L[f.actual] + '</span>' +
+          '<span class="' + (f.correct ? 'hit' : 'miss') + '">' + (f.correct ? '✓ called it' : '✗ missed') + '</span></div>';
+      }
+      h += '</article>';
+      return h;
+    }
+    function render() {
+      var rows = FX.filter(function (f) {
+        if (state.status === 'played' && !f.played) return false;
+        if (state.status === 'upcoming' && f.played) return false;
+        if (state.md !== 'all' && String(f.matchday) !== state.md) return false;
+        if (state.club !== 'all' && f.home !== state.club && f.away !== state.club) return false;
+        if (state.q && (f.home + ' ' + f.away + ' ' + f.date).toLowerCase().indexOf(state.q) === -1) return false;
+        return true;
+      });
+      document.getElementById('count').textContent = rows.length + ' of ' + FX.length + ' fixtures';
+      var host = document.getElementById('fixtures');
+      host.innerHTML = rows.length ? rows.map(card).join('') : '<div class="empty panel"><p>No fixtures match those filters.</p></div>';
+    }
+    render();
+  });
+})();
+</script>
+</body>
+</html>
